@@ -1,0 +1,64 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter / Dart / Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication & Obfuscation mappings
+app.*.symbols
+app.*.map.json
+*.symbols
+
+# Android Studio & Gradle
+/android/app/debug
+/android/app/profile
+/android/app/release
+android/.gradle/
+android/.kotlin/
+.gradle/
+
+# Windows Ephemeral
+windows/flutter/ephemeral/
+
+# Security & Secrets Protection (Never commit keys or credentials)
+key.properties
+*.jks
+*.keystore
+*.p12
+*.key
+*.pem
+*.env
+.env.*
+hotelpro_saved_credentials.json
+hotelpro_sync_security.json
+hotelpro_business_config.json
+
+# Built release packages & binaries
+releases/*.apk
+releases/*.aab
+releases/*.exe
+releases/*.msi
