@@ -34,12 +34,12 @@ jobs:
 
       - name: Build Waiter POS APK
         run: |
-          flutter build apk -t lib/main_waiter.dart -PtargetApp=waiter --dart-define=APP_ID=waiter --release
+          flutter build apk -t lib/main_waiter.dart -PtargetApp=waiter --dart-define=APP_ID=waiter --dart-define=SERVER_IP=192.168.0.100 --release
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_WaiterPOS.apk
 
       - name: Build Delivery Partner APK
         run: |
-          flutter build apk -t lib/main_delivery.dart -PtargetApp=delivery --dart-define=APP_ID=delivery --release
+          flutter build apk -t lib/main_delivery.dart -PtargetApp=delivery --dart-define=APP_ID=delivery --dart-define=SERVER_IP=192.168.0.100 --release
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_DeliveryBoy.apk
 
       - name: Build Housekeeping APK
