@@ -26,6 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Create .env file for Flutter assets
+        run: |
+          cat << 'EOF' > .env
+          SUPABASE_URL=https://koujqdqdzklurxvbhygf.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdWpxZHFkemtsdXJ4dmJoeWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NDEyMTIsImV4cCI6MjEwNjIxNzIxMn0.oejDwgrJ19TtsodUV6nC8KMR485rn_LpPUZnd3WraVQ
+          SUPABASE_ANNON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdWpxZHFkemtsdXJ4dmJoeWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NDEyMTIsImV4cCI6MjEwNjIxNzIxMn0.oejDwgrJ19TtsodUV6nC8KMR485rn_LpPUZnd3WraVQ
+          EOF
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -75,6 +83,15 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+
+      - name: Create .env file for Flutter assets
+        shell: pwsh
+        run: |
+          @"
+          SUPABASE_URL=https://koujqdqdzklurxvbhygf.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdWpxZHFkemtsdXJ4dmJoeWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NDEyMTIsImV4cCI6MjEwNjIxNzIxMn0.oejDwgrJ19TtsodUV6nC8KMR485rn_LpPUZnd3WraVQ
+          SUPABASE_ANNON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvdWpxZHFkemtsdXJ4dmJoeWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NDEyMTIsImV4cCI6MjEwNjIxNzIxMn0.oejDwgrJ19TtsodUV6nC8KMR485rn_LpPUZnd3WraVQ
+          "@ | Set-Content -Path .env -Encoding UTF8
 
       - name: Enable Windows Desktop
         run: flutter config --enable-windows-desktop
