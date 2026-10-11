@@ -53,6 +53,7 @@ key.properties
 *.pem
 *.env
 .env.*
+!.env
 !.env.example
 hotelpro_saved_credentials.json
 hotelpro_sync_security.json
