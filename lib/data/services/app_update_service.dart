@@ -73,7 +73,7 @@ class AppUpdateService {
     }
   }
 
-  /// Compare two semantic version strings (e.g., '1.0.3' > '1.0.0')
+  /// Compare two semantic version strings (e.g., '1.0.4' > '1.0.0')
   static bool isNewerVersion(String latestStr, String currentStr) {
     try {
       final cleanLatest = latestStr.toLowerCase().replaceAll('v', '').trim();
@@ -161,7 +161,6 @@ class AppUpdateService {
       debugPrint('[AppUpdateService] Error checking GitHub release: $e');
     }
 
-    // Fallback: If GitHub API is temporarily rate-limited or unavailable, construct default info
     return null;
   }
 
@@ -180,14 +179,13 @@ class AppUpdateService {
       if (!context.mounted) return;
 
       if (info != null && info.hasUpdate) {
-        // Skip if user already dismissed this exact version in current session (unless manual check)
         if (silent && _dismissedVersion == info.latestVersion) {
           return;
         }
 
         await showDialog(
           context: context,
-          barrierDismissible: true,
+          barrierDismissible: false,
           builder: (ctx) => AppUpdateDialog(
             updateInfo: info,
             onDismiss: () {
@@ -215,7 +213,176 @@ class AppUpdateService {
     }
   }
 
-  /// Direct method to launch the update download
+  /// Downloads file with progress following redirects
+  static Future<void> downloadFileWithProgress({
+    required String url,
+    required File saveFile,
+    required Function(double progress, int receivedBytes, int totalBytes) onProgress,
+  }) async {
+    var currentUrl = Uri.parse(url);
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 20);
+
+    HttpClientResponse? response;
+    int redirectCount = 0;
+
+    while (redirectCount < 6) {
+      final request = await client.getUrl(currentUrl);
+      request.headers.set('User-Agent', 'HotelPro-AppUpdater');
+      request.headers.set('Accept', 'application/octet-stream');
+      response = await request.close();
+
+      if (response.statusCode >= 300 && response.statusCode < 400) {
+        final location = response.headers.value('location');
+        if (location != null) {
+          currentUrl = Uri.parse(location);
+          redirectCount++;
+          continue;
+        }
+      }
+      break;
+    }
+
+    if (response == null || response.statusCode != 200) {
+      throw Exception('Server returned HTTP ${response?.statusCode} when downloading update package.');
+    }
+
+    final totalBytes = response.contentLength;
+    int receivedBytes = 0;
+
+    if (saveFile.existsSync()) {
+      try {
+        saveFile.deleteSync();
+      } catch (_) {}
+    }
+
+    final sink = saveFile.openWrite();
+    await for (final chunk in response) {
+      sink.add(chunk);
+      receivedBytes += chunk.length;
+      final progress = totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+      onProgress(progress, receivedBytes, totalBytes);
+    }
+    await sink.flush();
+    await sink.close();
+  }
+
+  /// Completely automated In-App Updater for Windows Desktop ERP:
+  /// 1. Downloads the new release zip inside the app with progress
+  /// 2. Extracts to %TEMP%
+  /// 3. Spawns background updater script and restarts app automatically
+  static Future<void> performWindowsInAppUpdate(
+    AppUpdateInfo info, {
+    required Function(double progress, String status) onProgress,
+  }) async {
+    if (!Platform.isWindows) return;
+
+    final tempDir = Directory.systemTemp;
+    final zipFile = File('${tempDir.path}\\hotelpro_update_${info.latestVersion}.zip');
+    final extractDir = Directory('${tempDir.path}\\hotelpro_extracted_${info.latestVersion}');
+
+    onProgress(0.05, 'Connecting to GitHub server...');
+
+    // 1. Download
+    await downloadFileWithProgress(
+      url: info.downloadUrl,
+      saveFile: zipFile,
+      onProgress: (pct, received, total) {
+        final receivedMb = (received / (1024 * 1024)).toStringAsFixed(1);
+        final totalMb = total > 0 ? (total / (1024 * 1024)).toStringAsFixed(1) : '?';
+        final pctDisplay = (pct * 100).toInt();
+        onProgress(0.05 + (pct * 0.75), 'Downloading update package: $pctDisplay% ($receivedMb MB / $totalMb MB)');
+      },
+    );
+
+    // 2. Extract
+    onProgress(0.85, 'Extracting and verifying update package...');
+    if (extractDir.existsSync()) {
+      try {
+        extractDir.deleteSync(recursive: true);
+      } catch (_) {}
+    }
+    extractDir.createSync(recursive: true);
+
+    // Try tar.exe (fastest native on Win10/11)
+    var extractOk = false;
+    try {
+      final tarRun = await Process.run('tar.exe', ['-xf', zipFile.path, '-C', extractDir.path]);
+      if (tarRun.exitCode == 0) {
+        extractOk = true;
+      }
+    } catch (_) {}
+
+    if (!extractOk) {
+      // Fallback: PowerShell Expand-Archive
+      onProgress(0.90, 'Extracting files via Windows PowerShell...');
+      final psRun = await Process.run('powershell.exe', [
+        '-NoProfile',
+        '-Command',
+        'Expand-Archive -LiteralPath "${zipFile.path}" -DestinationPath "${extractDir.path}" -Force',
+      ]);
+      if (psRun.exitCode != 0) {
+        throw Exception('Extraction failed: ${psRun.stderr}');
+      }
+    }
+
+    // 3. Locate source folder
+    String effectiveSource = extractDir.path;
+    final topEntities = extractDir.listSync();
+    final hasExeInRoot = topEntities.any((e) => e.path.toLowerCase().endsWith('.exe'));
+    if (!hasExeInRoot) {
+      for (final entity in topEntities) {
+        if (entity is Directory) {
+          final subEntities = entity.listSync();
+          if (subEntities.any((e) => e.path.toLowerCase().endsWith('.exe'))) {
+            effectiveSource = entity.path;
+            break;
+          }
+        }
+      }
+    }
+
+    // 4. Target App Directory & Exe Path
+    final currentExePath = Platform.resolvedExecutable;
+    final currentAppDir = File(currentExePath).parent.path;
+
+    onProgress(0.95, 'Preparing in-place replacement and restart...');
+
+    // 5. Generate detached batch updater script
+    final updaterBat = File('${tempDir.path}\\hotelpro_inplace_updater.bat');
+    final scriptContent = '''@echo off
+chcp 65001 >nul
+title HotelPro ERP Auto-Updater
+echo ========================================================
+echo   Updating HotelPro ERP to v${info.latestVersion}...
+echo   Please wait 2-3 seconds while files are updated.
+echo ========================================================
+timeout /t 2 /nobreak >nul
+robocopy "$effectiveSource" "$currentAppDir" /E /IS /IT /NP /NJH /NJS
+start "" "$currentExePath"
+timeout /t 2 /nobreak >nul
+del "${zipFile.path}" 2>nul
+rmdir /s /q "${extractDir.path}" 2>nul
+del "%~f0" 2>nul
+exit
+''';
+
+    await updaterBat.writeAsString(scriptContent);
+
+    onProgress(1.0, '✅ Update ready! Restarting HotelPro in 2 seconds...');
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    // 6. Launch detached batch file and exit current app cleanly
+    await Process.start(
+      'cmd.exe',
+      ['/c', updaterBat.path],
+      mode: ProcessStartMode.detached,
+    );
+
+    exit(0);
+  }
+
+  /// Direct method to launch the update download link in external browser
   static Future<void> downloadUpdate(String url) async {
     final uri = Uri.parse(url);
     try {
