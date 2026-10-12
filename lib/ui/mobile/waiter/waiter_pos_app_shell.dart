@@ -6,6 +6,7 @@ import '../../../config/app_constants.dart';
 import '../../../data/models/pos_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
+import '../../../data/services/app_update_service.dart';
 import '../components/mobile_app_scaffold.dart';
 import '../components/mobile_staff_login_view.dart';
 
@@ -129,6 +130,14 @@ class _WaiterPosAppShellState extends State<WaiterPosAppShell> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
   bool _onlyVeg = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.waiterPos, silent: true);
+    });
+  }
 
   // Table -> Customer Details Map
   final Map<String, TableCustomerInfo> _tableCustomerMap = {

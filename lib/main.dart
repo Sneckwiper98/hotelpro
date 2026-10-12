@@ -13,6 +13,7 @@ import 'ui/mobile/waiter/waiter_pos_app_shell.dart';
 import 'ui/mobile/housekeeping/housekeeping_app_shell.dart';
 import 'ui/mobile/manager/manager_mis_app_shell.dart';
 import 'ui/mobile/delivery/delivery_boy_app_shell.dart';
+import 'data/services/app_update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,10 @@ class _HotelProAppState extends State<HotelProApp> {
     } else {
       _appMode = AppDisplayMode.classicErp;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, silent: true);
+    });
   }
 
   void _handleRoleSwitch(MobileAppRole role) {

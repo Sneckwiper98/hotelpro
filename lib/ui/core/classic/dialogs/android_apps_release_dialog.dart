@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/classic_erp_theme.dart';
 import '../../../../data/services/hotel_sync_bridge_service.dart';
+import '../../../../data/services/app_update_service.dart';
 
 class MobileAppReleaseInfo {
   final String id;
@@ -363,6 +364,19 @@ class _AndroidAppsReleaseDialogState extends State<AndroidAppsReleaseDialog> {
                       foregroundColor: const Color(0xFF1B4F72),
                       side: const BorderSide(color: Color(0xFF1B4F72)),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      AppUpdateService.checkAndPrompt(context, silent: false);
+                    },
+                    icon: const Icon(Icons.cloud_sync_rounded, size: 15, color: Color(0xFF0C2461)),
+                    label: const Text('Check GitHub Cloud Updates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0C2461))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF0C2461)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
                   ),

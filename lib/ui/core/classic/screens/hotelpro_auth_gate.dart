@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../config/classic_erp_theme.dart';
 import '../../../../data/repositories/hotel_repository.dart';
 import '../classic_erp_shell.dart';
+import '../../../../data/services/app_update_service.dart';
 
 // =============================================================================
 // HotelProDesktopAuthGate
@@ -24,6 +25,14 @@ class HotelProDesktopAuthGate extends StatefulWidget {
 
 class _HotelProDesktopAuthGateState extends State<HotelProDesktopAuthGate> {
   bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.windowsErp, silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

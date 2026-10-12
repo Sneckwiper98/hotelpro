@@ -8,6 +8,7 @@ import 'views/customer_dining_view.dart';
 import 'views/customer_rooms_view.dart';
 import 'views/customer_orders_history_view.dart';
 import 'views/customer_mobile_login_view.dart';
+import '../../data/services/app_update_service.dart';
 
 class CustomerAppShell extends StatefulWidget {
   final VoidCallback? onSwitchToErp;
@@ -26,6 +27,14 @@ class _CustomerAppShellState extends State<CustomerAppShell> {
   bool _isCartOpen = false;
   bool _isDesktopMobileFrame = true; // Toggle for simulated Android phone bezel on desktop
   bool _isGuestBrowsing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.customerDining, silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/customer_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
+import '../../../data/services/app_update_service.dart';
 import '../components/mobile_app_scaffold.dart';
 import '../components/mobile_staff_login_view.dart';
 
@@ -75,6 +76,14 @@ class _DeliveryBoyAppShellState extends State<DeliveryBoyAppShell> {
   String get _vehicleNo => _authenticatedStaff?.vehicleNo ?? 'MH 02 BV 9912 (Honda Activa)';
   final double _riderRating = 4.9;
   final _cur = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.deliveryBoy, silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

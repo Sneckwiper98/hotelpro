@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
+import '../../../data/services/app_update_service.dart';
 import '../components/mobile_app_scaffold.dart';
 import '../components/mobile_staff_login_view.dart';
 
@@ -64,6 +65,14 @@ class _ManagerMisAppShellState extends State<ManagerMisAppShell> {
 
   String _selectedPeriod = 'Today';
   final _currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.managerMis, silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

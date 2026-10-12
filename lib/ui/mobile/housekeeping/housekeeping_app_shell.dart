@@ -4,6 +4,7 @@ import '../../../config/app_constants.dart';
 import '../../../data/models/room_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
+import '../../../data/services/app_update_service.dart';
 import '../components/mobile_app_scaffold.dart';
 import '../components/mobile_staff_login_view.dart';
 
@@ -67,6 +68,14 @@ class _HousekeepingAppShellState extends State<HousekeepingAppShell> {
   String _selectedStatusFilter = 'All';
   String _searchRoomQuery = '';
   String get _staffMember => _authenticatedStaff?.name ?? 'Sunita Sharma';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.housekeeping, silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
