@@ -7,6 +7,7 @@ import '../../config/supabase_config.dart';
 import '../models/pos_model.dart';
 import '../models/customer_model.dart';
 import '../models/room_model.dart';
+import '../models/housekeeping_model.dart';
 import '../repositories/hotel_repository.dart';
 import 'hotel_config_storage.dart';
 
@@ -39,6 +40,10 @@ class HotelSyncBridgeService extends ChangeNotifier {
 
   final List<HttpResponse> _sseClients = [];
   StreamSubscription? _supabaseOrdersSub;
+  StreamSubscription? _supabaseCustomerOrdersSub;
+  StreamSubscription? _supabaseRoomsSub;
+  StreamSubscription? _supabaseHkSub;
+  Timer? _cloudPollTimer;
   HotelRepository? _attachedRepo;
 
   HotelRepository? get attachedRepo => _attachedRepo;
@@ -988,12 +993,14 @@ class HotelSyncBridgeService extends ChangeNotifier {
 
     try {
       final client = SupabaseConfig.client!;
-      // Stream pos_orders changes
+
+      // 1. Stream pos_orders changes (Real-time live synchronization for Waiter, POS, Kitchen)
+      _supabaseOrdersSub?.cancel();
       _supabaseOrdersSub = client.from('pos_orders').stream(primaryKey: ['id']).listen((data) {
         debugPrint('[HotelSyncBridge] Supabase Realtime received ${data.length} pos_orders');
-        // Synchronize incoming cloud orders
         for (final row in data) {
           final orderId = row['id']?.toString() ?? '';
+          final orderNum = row['order_number']?.toString() ?? '';
           final statusStr = row['status']?.toString() ?? 'kot_printed';
           PosOrderStatus status = PosOrderStatus.kotPrinted;
           for (final s in PosOrderStatus.values) {
@@ -1003,17 +1010,108 @@ class HotelSyncBridgeService extends ChangeNotifier {
             }
           }
 
-          final existingIdx = repo.posOrders.indexWhere((o) => o.id == orderId || o.orderNumber == row['order_number']);
+          final existingIdx = repo.posOrders.indexWhere((o) => o.id == orderId || o.orderNumber == orderNum);
           if (existingIdx != -1) {
-            // Update status if changed remotely
             if (repo.posOrders[existingIdx].status != status) {
               repo.posOrders[existingIdx] = repo.posOrders[existingIdx].copyWith(status: status);
               repo.notifyListeners();
             }
+          } else {
+            // New live order punched from another phone or Windows ERP!
+            try {
+              final newOrder = PosOrderModel.fromJson(row);
+              repo.posOrders.insert(0, newOrder);
+              repo.notifyListeners();
+            } catch (e) {
+              debugPrint('[HotelSyncBridge] Error parsing incoming pos_order: $e');
+            }
           }
         }
       }, onError: (e) {
-        debugPrint('[HotelSyncBridge] Supabase Realtime stream fallback: $e');
+        debugPrint('[HotelSyncBridge] Supabase Realtime pos_orders fallback: $e');
+      });
+
+      // 2. Stream customer_orders changes (Customer App, Delivery Boy, Kitchen KDS, Windows ERP)
+      _supabaseCustomerOrdersSub?.cancel();
+      _supabaseCustomerOrdersSub = client.from('customer_orders').stream(primaryKey: ['id']).listen((data) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime received ${data.length} customer_orders');
+        for (final row in data) {
+          final orderId = row['id']?.toString() ?? '';
+          final existingIdx = repo.customerOrders.indexWhere((o) => o.id == orderId);
+          if (existingIdx != -1) {
+            try {
+              final updated = CustomerFoodOrderModel.fromJson(row);
+              repo.customerOrders[existingIdx] = updated;
+              repo.notifyListeners();
+            } catch (_) {}
+          } else {
+            try {
+              final newOrder = CustomerFoodOrderModel.fromJson(row);
+              repo.customerOrders.insert(0, newOrder);
+              repo.notifyListeners();
+            } catch (e) {
+              debugPrint('[HotelSyncBridge] Error parsing incoming customer_order: $e');
+            }
+          }
+        }
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime customer_orders fallback: $e');
+      });
+
+      // 3. Stream rooms changes (Live room status sync across Front Desk, Housekeeping, Manager)
+      _supabaseRoomsSub?.cancel();
+      _supabaseRoomsSub = client.from('rooms').stream(primaryKey: ['id']).listen((data) {
+        for (final row in data) {
+          final roomId = row['id']?.toString() ?? '';
+          final existingIdx = repo.rooms.indexWhere((r) => r.id == roomId);
+          if (existingIdx != -1) {
+            try {
+              final statusStr = row['status']?.toString() ?? 'available_clean';
+              final newStatus = RoomStatus.fromCode(statusStr);
+              if (repo.rooms[existingIdx].status != newStatus) {
+                repo.rooms[existingIdx] = repo.rooms[existingIdx].copyWith(
+                  status: newStatus,
+                  notes: row['notes']?.toString() ?? repo.rooms[existingIdx].notes,
+                  currentGuestName: row['current_guest_name']?.toString(),
+                  currentReservationId: row['current_reservation_id']?.toString(),
+                );
+                repo.notifyListeners();
+              }
+            } catch (_) {}
+          }
+        }
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime rooms fallback: $e');
+      });
+
+      // 4. Stream housekeeping_tasks changes
+      _supabaseHkSub?.cancel();
+      _supabaseHkSub = client.from('housekeeping_tasks').stream(primaryKey: ['id']).listen((data) {
+        for (final row in data) {
+          final taskId = row['id']?.toString() ?? '';
+          final existingIdx = repo.housekeepingTasks.indexWhere((t) => t.id == taskId);
+          if (existingIdx != -1) {
+            try {
+              repo.housekeepingTasks[existingIdx] = HousekeepingTaskModel.fromJson(row);
+              repo.notifyListeners();
+            } catch (_) {}
+          } else {
+            try {
+              repo.housekeepingTasks.insert(0, HousekeepingTaskModel.fromJson(row));
+              repo.notifyListeners();
+            } catch (_) {}
+          }
+        }
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime housekeeping fallback: $e');
+      });
+
+      // 5. Periodic Background Live Cloud Refresh (Ensures full data sync every 10 seconds)
+      _cloudPollTimer?.cancel();
+      _cloudPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+          repo.fetchFromSupabase();
+        }
       });
     } catch (e) {
       debugPrint('[HotelSyncBridge] Supabase setup fallback: $e');
@@ -1024,7 +1122,9 @@ class HotelSyncBridgeService extends ChangeNotifier {
     if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
     try {
       final client = SupabaseConfig.client!;
-      await client.from('pos_orders').insert({
+      final id = 'kot-${DateTime.now().millisecondsSinceEpoch}';
+      await client.from('pos_orders').upsert({
+        'id': id,
         'order_number': 'KOT-WTR-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
         'table_number': payload['tableNumber'] ?? 'T-01',
         'status': 'kot_printed',
@@ -1035,7 +1135,6 @@ class HotelSyncBridgeService extends ChangeNotifier {
       });
       debugPrint('[HotelSyncBridge] KOT pushed to Supabase Cloud.');
     } catch (e) {
-      // Graceful fallback to local LAN sync
       debugPrint('[HotelSyncBridge] Cloud push skipped/fallback: $e');
     }
   }

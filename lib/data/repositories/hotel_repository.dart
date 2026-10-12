@@ -465,103 +465,201 @@ class HotelRepository extends ChangeNotifier {
       debugPrint('[HotelRepository] Fetching live data from online Supabase...');
 
       // 1. Branches
-      final branchData = await client.from('branches').select();
-      if (branchData.isNotEmpty) {
-        _branches = branchData.map((b) => BranchModel.fromJson(b)).toList();
-        if (!_branches.any((b) => b.id == _activeBranch.id)) {
-          _activeBranch = _branches.first;
+      try {
+        final branchData = await client.from('branches').select();
+        if (branchData.isNotEmpty) {
+          _branches = branchData.map((b) => BranchModel.fromJson(b)).toList();
+          if (!_branches.any((b) => b.id == _activeBranch.id)) {
+            _activeBranch = _branches.first;
+          }
         }
+      } catch (e) {
+        debugPrint('[HotelRepository] Branches fetch notice: $e');
       }
 
       // 2. Room Types
-      final roomTypeData = await client.from('room_types').select();
-      _roomTypes = roomTypeData.map((rt) => RoomTypeModel.fromJson(rt)).toList();
+      try {
+        final roomTypeData = await client.from('room_types').select();
+        if (roomTypeData.isNotEmpty) {
+          _roomTypes = roomTypeData.map((rt) => RoomTypeModel.fromJson(rt)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Room types fetch notice: $e');
+      }
 
       // 3. Rooms
-      final roomData = await client.from('rooms').select();
-      _rooms = roomData.map((r) => RoomModel.fromJson(r)).toList();
+      try {
+        final roomData = await client.from('rooms').select();
+        if (roomData.isNotEmpty) {
+          _rooms = roomData.map((r) => RoomModel.fromJson(r)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Rooms fetch notice: $e');
+      }
 
       // 4. Guests
-      final guestData = await client.from('guests').select();
-      _guests = guestData.map((g) => GuestModel.fromJson(g)).toList();
+      try {
+        final guestData = await client.from('guests').select();
+        if (guestData.isNotEmpty) {
+          _guests = guestData.map((g) => GuestModel.fromJson(g)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Guests fetch notice: $e');
+      }
 
       // 5. Reservations
-      final resData = await client.from('reservations').select();
-      _reservations = resData.map((res) => ReservationModel.fromJson(res)).toList();
+      try {
+        final resData = await client.from('reservations').select();
+        if (resData.isNotEmpty) {
+          _reservations = resData.map((res) => ReservationModel.fromJson(res)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Reservations fetch notice: $e');
+      }
 
       // 6. POS Outlets
-      final outletData = await client.from('pos_outlets').select();
-      _posOutlets = outletData.map((o) => PosOutletModel.fromJson(o)).toList();
+      try {
+        final outletData = await client.from('pos_outlets').select();
+        if (outletData.isNotEmpty) {
+          _posOutlets = outletData.map((o) => PosOutletModel.fromJson(o)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Outlets fetch notice: $e');
+      }
 
       // 7. POS Menu Items
-      final menuData = await client.from('pos_menu_items').select();
-      _posMenuItems = menuData.map((m) => PosMenuItemModel.fromJson(m)).toList();
+      try {
+        final menuData = await client.from('pos_menu_items').select();
+        if (menuData.isNotEmpty) {
+          _posMenuItems = menuData.map((m) => PosMenuItemModel.fromJson(m)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Menu items fetch notice: $e');
+      }
 
       // 8. POS Orders
-      final orderData = await client.from('pos_orders').select().order('created_at', ascending: false);
-      _posOrders = orderData.map((o) => PosOrderModel.fromJson(o)).toList();
+      try {
+        final orderData = await client.from('pos_orders').select().order('created_at', ascending: false);
+        if (orderData.isNotEmpty) {
+          _posOrders = orderData.map((o) => PosOrderModel.fromJson(o)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] POS orders fetch notice: $e');
+      }
 
       // 9. POS Bills
-      final billData = await client.from('pos_bills').select().order('created_at', ascending: false);
-      _posBills = billData.map((b) => PosBillRecord.fromJson(b)).toList();
+      try {
+        final billData = await client.from('pos_bills').select().order('created_at', ascending: false);
+        if (billData.isNotEmpty) {
+          _posBills = billData.map((b) => PosBillRecord.fromJson(b)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] POS bills fetch notice: $e');
+      }
 
       // 10. Housekeeping Tasks
-      final hkData = await client.from('housekeeping_tasks').select().order('created_at', ascending: false);
-      _housekeepingTasks = hkData.map((t) => HousekeepingTaskModel.fromJson(t)).toList();
+      try {
+        final hkData = await client.from('housekeeping_tasks').select().order('created_at', ascending: false);
+        if (hkData.isNotEmpty) {
+          _housekeepingTasks = hkData.map((t) => HousekeepingTaskModel.fromJson(t)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Housekeeping fetch notice: $e');
+      }
 
       // 11. Delivery Riders
-      final riderData = await client.from('delivery_riders').select();
-      _deliveryRiders = riderData.map((r) => DeliveryRiderModel.fromJson(r)).toList();
+      try {
+        final riderData = await client.from('delivery_riders').select();
+        if (riderData.isNotEmpty) {
+          _deliveryRiders = riderData.map((r) => DeliveryRiderModel.fromJson(r)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Delivery riders fetch notice: $e');
+      }
 
       // 12. Customer Orders
-      final custOrderData = await client.from('customer_orders').select().order('created_at', ascending: false);
-      _customerOrders.clear();
-      _customerOrders.addAll(custOrderData.map((co) => CustomerFoodOrderModel.fromJson(co)));
+      try {
+        final custOrderData = await client.from('customer_orders').select().order('created_at', ascending: false);
+        if (custOrderData.isNotEmpty) {
+          _customerOrders.clear();
+          _customerOrders.addAll(custOrderData.map((co) => CustomerFoodOrderModel.fromJson(co)));
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Customer orders fetch notice: $e');
+      }
 
       // 13. Stock Items
-      final stockData = await client.from('stock_items').select();
-      _stockItems = stockData.map((s) => StockItemModel.fromJson(s)).toList();
+      try {
+        final stockData = await client.from('stock_items').select();
+        if (stockData.isNotEmpty) {
+          _stockItems = stockData.map((s) => StockItemModel.fromJson(s)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Stock items fetch notice: $e');
+      }
 
       // 14. Banquet Halls
-      final banquetData = await client.from('banquet_halls').select();
-      _banquetHalls = banquetData.map((bh) => BanquetHallModel.fromJson(bh)).toList();
+      try {
+        final banquetData = await client.from('banquet_halls').select();
+        if (banquetData.isNotEmpty) {
+          _banquetHalls = banquetData.map((bh) => BanquetHallModel.fromJson(bh)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Banquet halls fetch notice: $e');
+      }
 
       // 15. Purchases
-      final purchaseData = await client.from('purchases').select().order('purchase_date', ascending: false);
-      _purchases = purchaseData.map((p) => PurchaseEntry.fromJson(p)).toList();
+      try {
+        final purchaseData = await client.from('purchases').select().order('purchase_date', ascending: false);
+        if (purchaseData.isNotEmpty) {
+          _purchases = purchaseData.map((p) => PurchaseEntry.fromJson(p)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Purchases fetch notice: $e');
+      }
 
       // 16. Expenses
-      final expenseData = await client.from('expenses').select().order('expense_date', ascending: false);
-      _expenses = expenseData.map((e) => ExpenseEntry.fromJson(e)).toList();
+      try {
+        final expenseData = await client.from('expenses').select().order('expense_date', ascending: false);
+        if (expenseData.isNotEmpty) {
+          _expenses = expenseData.map((e) => ExpenseEntry.fromJson(e)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Expenses fetch notice: $e');
+      }
 
       // 17. Hotel Business Profile
-      final configData = await client.from('hotel_business_config').select().limit(1).maybeSingle();
-      if (configData != null) {
-        _clientBusinessName = configData['business_name'] as String? ?? _clientBusinessName;
-        _clientTagline = configData['tagline'] as String? ?? _clientTagline;
-        _clientLicenseKey = configData['license_key'] as String? ?? _clientLicenseKey;
-        _clientLicenseType = configData['license_type'] as String? ?? _clientLicenseType;
-        _clientLicenseExpiry = configData['expiry_date'] as String? ?? _clientLicenseExpiry;
-        _clientContactPerson = configData['contact_person'] as String? ?? _clientContactPerson;
-        _moduleRoomsEnabled = configData['enable_rooms'] as bool? ?? _moduleRoomsEnabled;
-        _modulePosEnabled = configData['enable_pos'] as bool? ?? _modulePosEnabled;
-        _moduleHousekeepingEnabled = configData['enable_housekeeping'] as bool? ?? _moduleHousekeepingEnabled;
-        _moduleCrsEnabled = configData['enable_crs'] as bool? ?? _moduleCrsEnabled;
-        _moduleBanquetEnabled = configData['enable_banquet'] as bool? ?? _moduleBanquetEnabled;
-        _moduleCustomerAppEnabled = configData['enable_customer_app'] as bool? ?? _moduleCustomerAppEnabled;
-        _roomGstRate = (configData['room_gst'] as num?)?.toDouble() ?? _roomGstRate;
-        _foodGstRate = (configData['food_gst'] as num?)?.toDouble() ?? _foodGstRate;
+      try {
+        final configData = await client.from('hotel_business_config').select().limit(1).maybeSingle();
+        if (configData != null) {
+          _clientBusinessName = configData['business_name'] as String? ?? _clientBusinessName;
+          _clientTagline = configData['tagline'] as String? ?? _clientTagline;
+          _clientLicenseKey = configData['license_key'] as String? ?? _clientLicenseKey;
+          _clientLicenseType = configData['license_type'] as String? ?? _clientLicenseType;
+          _clientLicenseExpiry = configData['expiry_date'] as String? ?? _clientLicenseExpiry;
+          _clientContactPerson = configData['contact_person'] as String? ?? _clientContactPerson;
+          _moduleRoomsEnabled = configData['enable_rooms'] as bool? ?? _moduleRoomsEnabled;
+          _modulePosEnabled = configData['enable_pos'] as bool? ?? _modulePosEnabled;
+          _moduleHousekeepingEnabled = configData['enable_housekeeping'] as bool? ?? _moduleHousekeepingEnabled;
+          _moduleCrsEnabled = configData['enable_crs'] as bool? ?? _moduleCrsEnabled;
+          _moduleBanquetEnabled = configData['enable_banquet'] as bool? ?? _moduleBanquetEnabled;
+          _moduleCustomerAppEnabled = configData['enable_customer_app'] as bool? ?? _moduleCustomerAppEnabled;
+          _roomGstRate = (configData['room_gst'] as num?)?.toDouble() ?? _roomGstRate;
+          _foodGstRate = (configData['food_gst'] as num?)?.toDouble() ?? _foodGstRate;
 
-        _activeBranch = _activeBranch.copyWith(
-          name: _clientBusinessName,
-          address: configData['address'] as String? ?? _activeBranch.address,
-          city: configData['city'] as String? ?? _activeBranch.city,
-          state: configData['state'] as String? ?? _activeBranch.state,
-          phone: configData['phone'] as String? ?? _activeBranch.phone,
-          email: configData['email'] as String? ?? _activeBranch.email,
-          taxIdentifier: configData['gstin'] as String? ?? _activeBranch.taxIdentifier,
-          currency: configData['currency'] as String? ?? _activeBranch.currency,
-        );
+          _activeBranch = _activeBranch.copyWith(
+            name: _clientBusinessName,
+            address: configData['address'] as String? ?? _activeBranch.address,
+            city: configData['city'] as String? ?? _activeBranch.city,
+            state: configData['state'] as String? ?? _activeBranch.state,
+            phone: configData['phone'] as String? ?? _activeBranch.phone,
+            email: configData['email'] as String? ?? _activeBranch.email,
+            taxIdentifier: configData['gstin'] as String? ?? _activeBranch.taxIdentifier,
+            currency: configData['currency'] as String? ?? _activeBranch.currency,
+          );
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Business config fetch notice: $e');
       }
 
       debugPrint('[HotelRepository] Successfully synchronized live state with Supabase cloud!');
@@ -576,7 +674,8 @@ class HotelRepository extends ChangeNotifier {
   void _pushPosOrderToSupabase(PosOrderModel order) {
     if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
     try {
-      SupabaseConfig.client!.from('pos_orders').insert({
+      SupabaseConfig.client!.from('pos_orders').upsert({
+        'id': order.id,
         'outlet_id': order.outletId,
         'order_number': order.orderNumber,
         'table_number': order.tableNumber ?? 'T-01',
@@ -606,7 +705,7 @@ class HotelRepository extends ChangeNotifier {
   void _pushBillToSupabase(PosBillRecord bill) {
     if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
     try {
-      SupabaseConfig.client!.from('pos_bills').insert({
+      SupabaseConfig.client!.from('pos_bills').upsert({
         'id': bill.id,
         'bill_number': bill.billNumber,
         'billing_type': bill.billingType.name,
@@ -641,7 +740,7 @@ class HotelRepository extends ChangeNotifier {
   void _pushCustomerOrderToSupabase(CustomerFoodOrderModel order) {
     if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
     try {
-      SupabaseConfig.client!.from('customer_orders').insert({
+      SupabaseConfig.client!.from('customer_orders').upsert({
         'id': order.id,
         'branch_id': order.branchId,
         'branch_name': order.branchName,
@@ -945,6 +1044,8 @@ class HotelRepository extends ChangeNotifier {
   // ── Getters ──────────────────────────────────────────────────────────
   List<BranchModel> get branches => _branches;
   BranchModel get activeBranch => _activeBranch;
+  List<RoomModel> get rooms => _rooms;
+  List<HousekeepingTaskModel> get housekeepingTasks => _housekeepingTasks;
 
   List<RoomModel> get activeBranchRooms =>
       _rooms.where((r) => r.branchId == _activeBranch.id).toList();
@@ -1154,6 +1255,13 @@ class HotelRepository extends ChangeNotifier {
         status: newStatus,
         notes: notes ?? _rooms[idx].notes,
       );
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('rooms').update({
+          'status': newStatus.code,
+          'notes': notes ?? _rooms[idx].notes,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', roomId).then((_) {}).catchError((_) {});
+      }
       notifyListeners();
     }
   }
@@ -1278,6 +1386,47 @@ class HotelRepository extends ChangeNotifier {
       currentGuestVip: vipTier,
       keycardRfid: keycardRfid ?? 'RFID-${room.roomNumber}-A',
     );
+
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      final client = SupabaseConfig.client!;
+      client.from('guests').upsert({
+        'id': newGuest.id,
+        'organization_id': newGuest.organizationId,
+        'first_name': newGuest.firstName,
+        'last_name': newGuest.lastName,
+        'email': newGuest.email,
+        'phone': newGuest.phone,
+        'vip_tier': newGuest.vipTier.code,
+        'id_number': newGuest.idNumber,
+      }).then((_) {}).catchError((_) {});
+
+      client.from('reservations').upsert({
+        'id': newReservation.id,
+        'booking_reference': newReservation.bookingReference,
+        'branch_id': newReservation.branchId,
+        'guest_id': newReservation.guestId,
+        'room_id': newReservation.roomId,
+        'room_type_id': newReservation.roomTypeId,
+        'check_in_date': newReservation.checkInDate.toIso8601String(),
+        'check_out_date': newReservation.checkOutDate.toIso8601String(),
+        'actual_check_in': newReservation.actualCheckIn?.toIso8601String(),
+        'booking_status': newReservation.bookingStatus.code,
+        'booking_source': newReservation.bookingSource,
+        'rate_per_night': newReservation.ratePerNight,
+        'advance_paid': newReservation.advancePaid,
+        'guest_name': newReservation.guestName,
+        'guest_phone': newReservation.guestPhone,
+        'room_number': newReservation.roomNumber,
+        'room_type_name': newReservation.roomTypeName,
+      }).then((_) {}).catchError((_) {});
+
+      client.from('rooms').update({
+        'status': RoomStatus.occupied.code,
+        'current_guest_name': guestName,
+        'current_reservation_id': reservationId,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', roomId).then((_) {}).catchError((_) {});
+    }
 
     notifyListeners();
   }
@@ -1509,6 +1658,21 @@ class HotelRepository extends ChangeNotifier {
         _rooms[roomIdx] = _rooms[roomIdx].copyWith(status: RoomStatus.availableClean);
       } else if (newStatus == 'inspected_approved') {
         _rooms[roomIdx] = _rooms[roomIdx].copyWith(status: RoomStatus.cleanInspected);
+      }
+    }
+
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('housekeeping_tasks').update({
+        'status': newStatus,
+        'inspection_notes': notes ?? task.inspectionNotes,
+        'completed_at': newStatus == 'inspected_approved' ? DateTime.now().toIso8601String() : null,
+      }).eq('id', taskId).then((_) {}).catchError((_) {});
+
+      if (roomIdx != -1) {
+        SupabaseConfig.client!.from('rooms').update({
+          'status': _rooms[roomIdx].status.code,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', task.roomId).then((_) {}).catchError((_) {});
       }
     }
 
@@ -2788,6 +2952,16 @@ class HotelRepository extends ChangeNotifier {
         orderId: orderId,
         status: newStatus,
       );
+
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('customer_orders').update({
+          'order_status': newStatus.name,
+          'payment_status': paymentStatus.name,
+          'rider_name': riderName,
+          'rider_phone': riderPhone,
+          'rider_vehicle_no': riderVehicleNo,
+        }).eq('id', orderId).then((_) {}).catchError((_) {});
+      }
 
       notifyListeners();
     }
