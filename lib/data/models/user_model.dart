@@ -152,4 +152,39 @@ class AppUserModel {
       createdAt: createdAt,
     );
   }
+
+  factory AppUserModel.fromJson(Map<String, dynamic> json) {
+    List<String> branches = ['branch-mum-01'];
+    final rawBranches = json['branch_access'];
+    if (rawBranches is List) {
+      branches = rawBranches.map((e) => e.toString()).toList();
+    }
+    return AppUserModel(
+      id: json['id'] as String,
+      staffId: json['staff_id'] as String?,
+      username: json['username'] as String? ?? '',
+      displayName: json['display_name'] as String? ?? '',
+      role: AppUserRole.fromCode(json['role'] as String? ?? 'front_desk_agent'),
+      branchAccess: branches,
+      isActive: json['is_active'] as bool? ?? true,
+      lastLogin: json['last_login'] != null
+          ? DateTime.tryParse(json['last_login'].toString())
+          : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'staff_id': staffId,
+        'username': username,
+        'display_name': displayName,
+        'role': role.code,
+        'branch_access': branchAccess,
+        'is_active': isActive,
+        'created_at': createdAt.toIso8601String(),
+      };
 }
+

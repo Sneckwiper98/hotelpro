@@ -64,4 +64,19 @@ class GuestModel {
     'special_requests': specialRequests,
     'total_stays': totalStays,
   };
+
+  Map<String, dynamic> toSupabaseJson() => {
+    'id': id,
+    'organization_id': organizationId.isNotEmpty ? organizationId : 'org-taj-imperial',
+    'first_name': firstName,
+    'last_name': lastName,
+    'email': email,
+    'phone': phone,
+    'vip_tier': vipTier.code,
+    'id_type': idType,
+    'id_number': idNumber,
+    'dietary_preferences': dietaryPreferences,
+    'special_requests': specialRequests,
+    'total_stays': totalStays,
+  };
 }

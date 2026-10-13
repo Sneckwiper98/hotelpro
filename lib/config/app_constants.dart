@@ -107,7 +107,15 @@ enum PaymentMethod {
   final String label;
   final String code;
   const PaymentMethod(this.label, this.code);
+
+  static PaymentMethod fromCode(String code) {
+    return PaymentMethod.values.firstWhere(
+      (e) => e.code == code || e.name == code,
+      orElse: () => PaymentMethod.cash,
+    );
+  }
 }
+
 
 enum PosOrderStatus {
   kotPrinted('KOT Printed', 'kot_printed'),

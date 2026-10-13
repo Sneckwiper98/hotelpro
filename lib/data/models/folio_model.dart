@@ -26,6 +26,36 @@ class FolioTransactionModel {
   });
 
   double get netAmount => isCredit ? -amount : (amount + taxAmount);
+
+  factory FolioTransactionModel.fromJson(Map<String, dynamic> json) => FolioTransactionModel(
+    id: json['id'] as String,
+    folioId: json['folio_id'] as String? ?? '',
+    category: FolioCategory.fromCode(json['category'] as String? ?? 'room_charge'),
+    description: json['description'] as String? ?? '',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+    taxAmount: (json['tax_amount'] as num?)?.toDouble() ?? 0.0,
+    isCredit: json['is_credit'] as bool? ?? false,
+    paymentMethod: json['payment_method'] != null
+        ? PaymentMethod.fromCode(json['payment_method'].toString())
+        : null,
+    referenceId: json['reference_id'] as String?,
+    timestamp: json['created_at'] != null
+        ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+        : DateTime.now(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'folio_id': folioId,
+    'category': category.code,
+    'description': description,
+    'amount': amount,
+    'tax_amount': taxAmount,
+    'is_credit': isCredit,
+    'payment_method': paymentMethod?.code,
+    'reference_id': referenceId,
+    'created_at': timestamp.toIso8601String(),
+  };
 }
 
 class FolioModel {
@@ -81,4 +111,29 @@ class FolioModel {
       transactions: transactions ?? this.transactions,
     );
   }
+
+  factory FolioModel.fromJson(Map<String, dynamic> json, {List<FolioTransactionModel>? txns}) {
+    return FolioModel(
+      id: json['id'] as String,
+      reservationId: json['reservation_id'] as String? ?? '',
+      folioNumber: json['folio_number'] as String? ?? 'FOL-001',
+      status: json['status'] as String? ?? 'open',
+      roomNumber: json['room_number'] as String? ?? '',
+      guestName: json['guest_name'] as String? ?? 'Guest',
+      transactions: txns ?? [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'reservation_id': reservationId,
+    'folio_number': folioNumber,
+    'status': status,
+    'room_number': roomNumber,
+    'guest_name': guestName,
+    'total_charges': totalCharges,
+    'total_paid': totalPaid,
+    'balance_due': balanceDue,
+  };
 }
+

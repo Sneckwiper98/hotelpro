@@ -135,7 +135,44 @@ class CustomerModel {
       joinedDate: joinedDate,
     );
   }
+
+  factory CustomerModel.fromJson(Map<String, dynamic> json) {
+    List<CustomerAddressModel> addrs = [];
+    final rawAddrs = json['addresses'];
+    if (rawAddrs is List) {
+      addrs = rawAddrs
+          .map((a) => CustomerAddressModel.fromJson(a as Map<String, dynamic>))
+          .toList();
+    }
+    return CustomerModel(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? 'Customer',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      password: json['password'] as String? ?? '123456',
+      city: json['city'] as String? ?? 'Mumbai',
+      gstin: json['gstin'] as String?,
+      companyName: json['company_name'] as String?,
+      addresses: addrs,
+      walletBalance: (json['wallet_balance'] as num?)?.toDouble() ?? 0.0,
+      totalVisits: (json['total_visits'] as num?)?.toInt() ?? 1,
+      joinedDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'addresses': addresses.map((a) => a.toJson()).toList(),
+        'wallet_balance': walletBalance,
+        'created_at': joinedDate.toIso8601String(),
+      };
 }
+
 
 class CustomerCartItem {
   final String menuItemId;
@@ -203,6 +240,39 @@ class DeliveryRiderModel {
     isAvailable: json['is_available'] as bool? ?? true,
     photoUrl: json['photo_url'] as String? ?? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'phone': phone,
+    'vehicle_no': vehicleNo,
+    'rating': rating,
+    'deliveries_completed': deliveriesCompleted,
+    'is_available': isAvailable,
+    'photo_url': photoUrl,
+  };
+
+  DeliveryRiderModel copyWith({
+    String? id,
+    String? name,
+    String? phone,
+    String? vehicleNo,
+    double? rating,
+    int? deliveriesCompleted,
+    bool? isAvailable,
+    String? photoUrl,
+  }) {
+    return DeliveryRiderModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      vehicleNo: vehicleNo ?? this.vehicleNo,
+      rating: rating ?? this.rating,
+      deliveriesCompleted: deliveriesCompleted ?? this.deliveriesCompleted,
+      isAvailable: isAvailable ?? this.isAvailable,
+      photoUrl: photoUrl ?? this.photoUrl,
+    );
+  }
 }
 
 class CustomerFoodOrderModel {

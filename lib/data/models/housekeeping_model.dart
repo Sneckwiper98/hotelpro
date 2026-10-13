@@ -65,4 +65,19 @@ class HousekeepingTaskModel {
     createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
     completedAt: json['completed_at'] != null ? DateTime.tryParse(json['completed_at'].toString()) : null,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'room_id': roomId,
+    'room_number': roomNumber,
+    'floor_number': floorNumber,
+    'task_type': taskType,
+    'priority': priority.code,
+    'status': status,
+    'assigned_staff_name': assignedStaff,
+    'inspection_notes': inspectionNotes,
+    'created_at': createdAt.toIso8601String(),
+    'completed_at': completedAt?.toIso8601String(),
+  };
 }

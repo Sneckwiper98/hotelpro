@@ -202,27 +202,40 @@ class HotelConfigStorage {
         for (final p in purchases) {
           await client.from('purchases').upsert({
             'id': p['id'],
-            'branch_id': p['branchId'] ?? 'branch-mum-01',
-            'invoice_number': p['invoiceNumber'] ?? 'INV',
-            'vendor_name': p['vendorName'] ?? 'Vendor',
-            'department': p['department'] ?? 'kitchen',
+            'branch_id': p['branchId'] ?? p['branch_id'] ?? 'branch-mum-01',
+            'invoice_number': p['invoiceNumber'] ?? p['invoice_number'] ?? 'INV',
+            'vendor_name': p['vendorName'] ?? p['vendor_name'] ?? 'Vendor',
+            'vendor_gstin': p['vendorGstin'] ?? p['vendor_gstin'] ?? '',
+            'vendor_phone': p['vendorPhone'] ?? p['vendor_phone'] ?? '',
+            'purchase_date': p['purchaseDate'] ?? p['purchase_date'] ?? DateTime.now().toIso8601String(),
+            'department': p['department'] ?? 'Kitchen & Provisions',
             'items': p['items'] ?? [],
-            'subtotal': p['subtotal'] ?? 0.0,
-            'tax_amount': p['taxAmount'] ?? 0.0,
-            'net_amount': p['netAmount'] ?? 0.0,
-            'payment_status': p['paymentStatus'] ?? 'Paid',
+            'subtotal': (p['subtotal'] ?? p['subTotal']) ?? 0.0,
+            'tax_amount': (p['taxAmount'] ?? p['tax_amount']) ?? 0.0,
+            'payment_status': p['paymentStatus'] ?? p['payment_status'] ?? 'Paid',
+            'payment_mode': p['paymentMode'] ?? p['payment_mode'] ?? 'Bank Transfer / NEFT',
+            'notes': p['notes'] ?? '',
+            'created_at': p['createdAt'] ?? p['created_at'] ?? DateTime.now().toIso8601String(),
           });
         }
         for (final e in expenses) {
+          final amt = (e['amount'] as num?)?.toDouble() ?? 0.0;
+          final tax = (e['taxAmount'] ?? e['tax_amount'] as num?)?.toDouble() ?? 0.0;
           await client.from('expenses').upsert({
             'id': e['id'],
-            'branch_id': e['branchId'] ?? 'branch-mum-01',
+            'branch_id': e['branchId'] ?? e['branch_id'] ?? 'branch-mum-01',
+            'voucher_number': e['voucherNo'] ?? e['voucher_number'] ?? 'EXP',
             'category': e['category'] ?? 'Operations',
+            'paid_to': (e['paidTo'] ?? e['paid_to'] ?? '').toString().isNotEmpty ? (e['paidTo'] ?? e['paid_to']) : 'Vendor / Supplier',
             'description': e['description'] ?? 'Expense',
-            'amount': e['amount'] ?? 0.0,
-            'tax_amount': e['taxAmount'] ?? 0.0,
-            'net_amount': e['netAmount'] ?? 0.0,
-            'payment_mode': e['paymentMode'] ?? 'Cash',
+            'amount': amt,
+            'tax_amount': tax,
+            'net_amount': (e['netAmount'] ?? e['net_amount'] as num?)?.toDouble() ?? (amt + tax),
+            'payment_mode': e['paymentMode'] ?? e['payment_mode'] ?? 'Cash',
+            'status': e['status'] ?? 'Approved',
+            'recorded_by': e['recordedBy'] ?? e['recorded_by'] ?? 'Accounts Dept',
+            'expense_date': e['date'] ?? e['expense_date'] ?? DateTime.now().toIso8601String(),
+            'created_at': e['createdAt'] ?? e['created_at'] ?? DateTime.now().toIso8601String(),
           });
         }
         debugPrint('[HotelConfigStorage] Synced accounting entries directly to Supabase cloud.');
@@ -432,29 +445,53 @@ class HotelConfigStorage {
   }
 
   // ── Saved Aggregator Channels (Zomato, Swiggy, ONDC, etc.) ─────────────
-  static const String _aggregatorChannelsFileName = 'hotelpro_aggregator_channels.json';
-
   static Future<void> saveAggregatorChannels(List<Map<String, dynamic>> channelList) async {
-    try {
-      final file = await _getFile(_aggregatorChannelsFileName);
-      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(channelList));
-    } catch (e) {
-      debugPrint('[HotelConfigStorage] Error saving aggregator channels: $e');
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      try {
+        final client = SupabaseConfig.client!;
+        for (final ch in channelList) {
+          await client.from('aggregator_channels').upsert({
+            'id': ch['id'] ?? 'ch-${ch['name']?.toString().toLowerCase()}',
+            'channel_name': ch['name'] ?? ch['channel_name'] ?? 'Channel',
+            'is_enabled': ch['enabled'] ?? ch['is_enabled'] ?? true,
+            'api_status': ch['status'] ?? ch['api_status'] ?? 'Connected',
+            'orders_today': ch['ordersCount'] ?? ch['orders_today'] ?? 0,
+            'revenue_today': (ch['revenue'] ?? ch['revenue_today'] as num?)?.toDouble() ?? 0.0,
+            'commission_rate': (ch['commission'] ?? ch['commission_rate'] as num?)?.toDouble() ?? 18.0,
+            'logo_asset': ch['icon'] ?? ch['logo_asset'] ?? '',
+            'sync_status': ch['syncStatus'] ?? ch['sync_status'] ?? 'Active',
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+        }
+        debugPrint('[HotelConfigStorage] Saved aggregator channels to online Supabase.');
+      } catch (e) {
+        debugPrint('[HotelConfigStorage] Supabase saveAggregatorChannels error: $e');
+      }
     }
   }
 
   static Future<List<Map<String, dynamic>>?> loadAggregatorChannels() async {
-    try {
-      final file = await _getFile(_aggregatorChannelsFileName);
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        if (content.isNotEmpty) {
-          final list = jsonDecode(content) as List<dynamic>;
-          return list.map((e) => e as Map<String, dynamic>).toList();
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      try {
+        final client = SupabaseConfig.client!;
+        final res = await client.from('aggregator_channels').select();
+        if (res.isNotEmpty) {
+          debugPrint('[HotelConfigStorage] Loaded aggregator channels from online Supabase.');
+          return res.map((r) => {
+            'id': r['id'],
+            'name': r['channel_name'],
+            'enabled': r['is_enabled'],
+            'status': r['api_status'],
+            'ordersCount': r['orders_today'],
+            'revenue': (r['revenue_today'] as num?)?.toDouble() ?? 0.0,
+            'commission': (r['commission_rate'] as num?)?.toDouble() ?? 18.0,
+            'icon': r['logo_asset'],
+            'syncStatus': r['sync_status'],
+          }).toList();
         }
+      } catch (e) {
+        debugPrint('[HotelConfigStorage] Supabase loadAggregatorChannels error: $e');
       }
-    } catch (e) {
-      debugPrint('[HotelConfigStorage] Error loading aggregator channels: $e');
     }
     return null;
   }

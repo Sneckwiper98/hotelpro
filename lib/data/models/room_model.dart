@@ -58,6 +58,19 @@ class RoomTypeModel {
     amenities: (json['amenities'] as List?)?.map((e) => e.toString()).toList() ?? [],
     description: json['description'] as String?,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'name': name,
+    'code': code,
+    'base_price': basePrice,
+    'max_adults': maxAdults,
+    'max_children': maxChildren,
+    'bed_type': bedType,
+    'amenities': amenities,
+    'description': description,
+  };
 }
 
 class RoomModel {
@@ -149,4 +162,22 @@ class RoomModel {
         ? VipTier.fromCode(json['current_guest_vip'] as String)
         : null,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'room_type_id': roomTypeId,
+    'room_number': roomNumber,
+    'floor_number': floorNumber,
+    'status': status.code,
+    'room_type_name': roomTypeName,
+    'base_price': basePrice,
+    'current_guest_name': currentGuestName,
+    'current_reservation_id': currentReservationId,
+    'current_guest_vip': currentGuestVip?.code,
+    'keycard_rfid': keycardRfid,
+    'notes': notes,
+    'updated_at': DateTime.now().toIso8601String(),
+  };
 }
+

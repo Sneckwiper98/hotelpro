@@ -43,6 +43,9 @@ class HotelSyncBridgeService extends ChangeNotifier {
   StreamSubscription? _supabaseCustomerOrdersSub;
   StreamSubscription? _supabaseRoomsSub;
   StreamSubscription? _supabaseHkSub;
+  StreamSubscription? _supabaseReservationsSub;
+  StreamSubscription? _supabaseBillsSub;
+  StreamSubscription? _supabaseStockSub;
   Timer? _cloudPollTimer;
   HotelRepository? _attachedRepo;
 
@@ -1106,7 +1109,34 @@ class HotelSyncBridgeService extends ChangeNotifier {
         debugPrint('[HotelSyncBridge] Supabase Realtime housekeeping fallback: $e');
       });
 
-      // 5. Periodic Background Live Cloud Refresh (Ensures full data sync every 10 seconds)
+      // 5. Stream reservations changes
+      _supabaseReservationsSub?.cancel();
+      _supabaseReservationsSub = client.from('reservations').stream(primaryKey: ['id']).listen((data) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime received ${data.length} reservations');
+        repo.fetchFromSupabase();
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime reservations fallback: $e');
+      });
+
+      // 6. Stream pos_bills changes
+      _supabaseBillsSub?.cancel();
+      _supabaseBillsSub = client.from('pos_bills').stream(primaryKey: ['id']).listen((data) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime received ${data.length} pos_bills');
+        repo.fetchFromSupabase();
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime pos_bills fallback: $e');
+      });
+
+      // 7. Stream stock_items changes
+      _supabaseStockSub?.cancel();
+      _supabaseStockSub = client.from('stock_items').stream(primaryKey: ['id']).listen((data) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime received ${data.length} stock_items');
+        repo.fetchFromSupabase();
+      }, onError: (e) {
+        debugPrint('[HotelSyncBridge] Supabase Realtime stock_items fallback: $e');
+      });
+
+      // 8. Periodic Background Live Cloud Refresh (Ensures full data sync every 10 seconds)
       _cloudPollTimer?.cancel();
       _cloudPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
         if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {

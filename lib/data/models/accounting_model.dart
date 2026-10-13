@@ -100,6 +100,24 @@ class PurchaseEntry {
     'createdAt': createdAt.toIso8601String(),
   };
 
+  Map<String, dynamic> toSupabaseJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'invoice_number': invoiceNumber,
+    'vendor_name': vendorName,
+    'vendor_gstin': vendorGstin,
+    'vendor_phone': vendorPhone,
+    'purchase_date': purchaseDate.toIso8601String(),
+    'department': department,
+    'items': items.map((i) => i.toJson()).toList(),
+    'payment_status': paymentStatus,
+    'payment_mode': paymentMode,
+    'subtotal': subTotal,
+    'tax_amount': totalTax,
+    'notes': notes,
+    'created_at': createdAt.toIso8601String(),
+  };
+
   factory PurchaseEntry.fromJson(Map<String, dynamic> json) => PurchaseEntry(
     id: json['id'] as String? ?? '',
     branchId: json['branch_id'] ?? json['branchId'] ?? '',
@@ -217,6 +235,23 @@ class ExpenseEntry {
     'billAttachmentName': billAttachmentName,
     'billAttachmentBase64': billAttachmentBytes != null ? base64Encode(billAttachmentBytes!) : null,
     'createdAt': createdAt.toIso8601String(),
+  };
+
+  Map<String, dynamic> toSupabaseJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'voucher_number': voucherNo,
+    'category': category,
+    'paid_to': paidTo.isNotEmpty ? paidTo : 'Vendor / Supplier',
+    'description': description,
+    'amount': amount,
+    'tax_amount': taxAmount,
+    'net_amount': netAmount,
+    'payment_mode': paymentMode,
+    'status': status,
+    'recorded_by': recordedBy,
+    'expense_date': date.toIso8601String(),
+    'created_at': createdAt.toIso8601String(),
   };
 
   factory ExpenseEntry.fromJson(Map<String, dynamic> json) {

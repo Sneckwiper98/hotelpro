@@ -93,6 +93,20 @@ class PosMenuItemModel {
     description: json['description'] as String?,
     imageUrl: json['image_url'] as String?,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'outlet_id': outletId,
+    'name': name,
+    'category': category,
+    'price': price,
+    'tax_rate': taxRate,
+    'is_available': isAvailable,
+    'is_veg': isVeg,
+    'emoji': emoji,
+    'description': description,
+    'image_url': imageUrl,
+  };
 }
 
 
@@ -362,5 +376,28 @@ class BanquetHallModel {
     capacity: (json['capacity'] as num?)?.toInt() ?? 100,
     baseRental: (json['base_rental'] as num?)?.toDouble() ?? 50000.0,
     features: json['features'] as String? ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'name': name,
+    'capacity': capacity,
+    'base_rental': baseRental,
+    'features': features,
+  };
+
+  BanquetHallModel copyWith({
+    String? name,
+    int? capacity,
+    double? baseRental,
+    String? features,
+  }) => BanquetHallModel(
+    id: id,
+    branchId: branchId,
+    name: name ?? this.name,
+    capacity: capacity ?? this.capacity,
+    baseRental: baseRental ?? this.baseRental,
+    features: features ?? this.features,
   );
 }

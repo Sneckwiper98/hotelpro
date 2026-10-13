@@ -91,6 +91,20 @@ class StockItemModel {
     'lastRestockedAt': lastRestockedAt.toIso8601String(),
   };
 
+  Map<String, dynamic> toSupabaseJson() => {
+    'id': id,
+    'branch_id': branchId,
+    'item_code': itemCode,
+    'name': name,
+    'category': category,
+    'unit': unit,
+    'current_stock': currentStock,
+    'reorder_level': reorderLevel,
+    'unit_price': unitPrice,
+    'storage_location': storageLocation,
+    'last_restocked_at': lastRestockedAt.toIso8601String(),
+  };
+
   factory StockItemModel.fromJson(Map<String, dynamic> json) => StockItemModel(
     id: json['id'] as String? ?? '',
     branchId: json['branch_id'] ?? json['branchId'] ?? '',

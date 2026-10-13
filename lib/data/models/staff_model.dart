@@ -72,6 +72,13 @@ enum StaffShift {
   final String label;
   final String code;
   const StaffShift(this.label, this.code);
+
+  static StaffShift fromCode(String code) {
+    return StaffShift.values.firstWhere(
+      (e) => e.code == code || e.name == code,
+      orElse: () => StaffShift.morning,
+    );
+  }
 }
 
 class StaffModel {
@@ -138,6 +145,25 @@ class StaffModel {
     );
   }
 
+  factory StaffModel.fromJson(Map<String, dynamic> json) {
+    return StaffModel(
+      id: json['id'] as String,
+      branchId: json['branch_id'] as String? ?? 'branch-mum-01',
+      fullName: json['full_name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String?,
+      department: StaffDepartment.fromCode(json['department'] as String? ?? 'front_desk'),
+      role: StaffRole.fromCode(json['role'] as String? ?? 'front_desk_agent'),
+      shift: StaffShift.fromCode(json['shift'] as String? ?? 'morning'),
+      isActive: json['is_active'] as bool? ?? true,
+      joinedDate: json['joined_date'] != null
+          ? DateTime.tryParse(json['joined_date'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      photoUrl: json['photo_url'] as String?,
+      idNumber: json['id_number'] as String?,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'branch_id': branchId,
@@ -148,8 +174,9 @@ class StaffModel {
         'role': role.code,
         'shift': shift.code,
         'is_active': isActive,
-        'joined_date': joinedDate.toIso8601String(),
+        'joined_date': joinedDate.toIso8601String().substring(0, 10),
         'photo_url': photoUrl,
         'id_number': idNumber,
       };
 }
+

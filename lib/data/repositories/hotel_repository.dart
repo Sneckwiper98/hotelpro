@@ -344,6 +344,19 @@ class HotelRepository extends ChangeNotifier {
       _branches[idx] = _activeBranch;
     }
 
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('branches').update({
+        'name': businessName,
+        'address': address,
+        'city': city,
+        'state': state,
+        'phone': phone,
+        'email': email,
+        'tax_identifier': gstin,
+        'currency': currency,
+      }).eq('id', _activeBranch.id).then((_) {}).catchError((_) {});
+    }
+
     // Persist configuration to disk
     HotelConfigStorage.saveConfig(
       businessName: businessName,
@@ -662,6 +675,77 @@ class HotelRepository extends ChangeNotifier {
         debugPrint('[HotelRepository] Business config fetch notice: $e');
       }
 
+      // 18. Staff Members
+      try {
+        final staffData = await client.from('staff_members').select();
+        if (staffData.isNotEmpty) {
+          _staff = staffData.map((s) => StaffModel.fromJson(s)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Staff members fetch notice: $e');
+      }
+
+      // 19. App Users
+      try {
+        final userData = await client.from('app_users').select();
+        if (userData.isNotEmpty) {
+          _appUsers = userData.map((u) => AppUserModel.fromJson(u)).toList();
+          if (!_appUsers.any((u) => u.id == _currentErpUser.id)) {
+            _currentErpUser = _appUsers.firstWhere(
+              (u) => u.username == 'rpatil.fd' || u.role == AppUserRole.superAdmin,
+              orElse: () => _appUsers.first,
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] App users fetch notice: $e');
+      }
+
+      // 20. Floors
+      try {
+        final floorData = await client.from('floors').select().order('floor_number');
+        if (floorData.isNotEmpty) {
+          _floors = floorData.map((f) => {
+            'id': f['id'] as String,
+            'branch_id': f['branch_id'] as String,
+            'floor_number': (f['floor_number'] as num).toInt(),
+            'label': f['label'] as String? ?? 'Floor ${f['floor_number']}',
+          }).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Floors fetch notice: $e');
+      }
+
+      // 21. Folios & Transactions
+      try {
+        final folioData = await client.from('folios').select();
+        final txnData = await client.from('folio_transactions').select();
+        if (folioData.isNotEmpty) {
+          final txnsByFolio = <String, List<FolioTransactionModel>>{};
+          for (final t in txnData) {
+            final fId = t['folio_id'] as String? ?? '';
+            txnsByFolio.putIfAbsent(fId, () => []).add(FolioTransactionModel.fromJson(t));
+          }
+          _folios = folioData.map((f) {
+            final fId = f['id'] as String;
+            final txns = txnsByFolio[fId] ?? [];
+            return FolioModel.fromJson(f, txns: txns);
+          }).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Folios fetch notice: $e');
+      }
+
+      // 22. Customers
+      try {
+        final custData = await client.from('customers').select();
+        if (custData.isNotEmpty) {
+          _registeredCustomers = custData.map((c) => CustomerModel.fromJson(c)).toList();
+        }
+      } catch (e) {
+        debugPrint('[HotelRepository] Customers fetch notice: $e');
+      }
+
       debugPrint('[HotelRepository] Successfully synchronized live state with Supabase cloud!');
       notifyListeners();
     } catch (e) {
@@ -775,6 +859,181 @@ class HotelRepository extends ChangeNotifier {
         debugPrint('[HotelRepository] Customer order ${order.id} pushed to Supabase online.');
       }).catchError((e) {
         debugPrint('[HotelRepository] Error pushing customer order to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushRoomTypeToSupabase(RoomTypeModel type) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('room_types').upsert(type.toJson()).then((_) {
+        debugPrint('[HotelRepository] RoomType ${type.name} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing RoomType to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushRoomToSupabase(RoomModel room) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('rooms').upsert(room.toJson()).then((_) {
+        debugPrint('[HotelRepository] Room ${room.roomNumber} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Room to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushFloorToSupabase(Map<String, dynamic> floor) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('floors').upsert(floor).then((_) {
+        debugPrint('[HotelRepository] Floor ${floor['floor_number']} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Floor to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushMenuItemToSupabase(PosMenuItemModel item) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('pos_menu_items').upsert(item.toJson()).then((_) {
+        debugPrint('[HotelRepository] Menu Item ${item.name} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Menu Item to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushStaffToSupabase(StaffModel staff) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('staff_members').upsert(staff.toJson()).then((_) {
+        debugPrint('[HotelRepository] Staff ${staff.fullName} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Staff to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushUserToSupabase(AppUserModel user) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('app_users').upsert(user.toJson()).then((_) {
+        debugPrint('[HotelRepository] App User ${user.username} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing App User to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushReservationToSupabase(ReservationModel res) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('reservations').upsert(res.toJson()).then((_) {
+        debugPrint('[HotelRepository] Reservation ${res.bookingReference} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Reservation to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushFolioToSupabase(FolioModel folio) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('folios').upsert({
+        'id': folio.id,
+        'reservation_id': folio.reservationId,
+        'folio_number': folio.folioNumber,
+        'status': folio.status,
+        'room_number': folio.roomNumber,
+        'guest_name': folio.guestName,
+        'total_charges': folio.totalCharges,
+        'total_paid': folio.totalPaid,
+        'balance_due': folio.balanceDue,
+      }).then((_) {
+        debugPrint('[HotelRepository] Folio ${folio.folioNumber} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Folio to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushFolioTransactionToSupabase(FolioTransactionModel txn) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('folio_transactions').upsert(txn.toJson()).then((_) {
+        debugPrint('[HotelRepository] Folio Transaction ${txn.id} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Folio Transaction to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushCustomerToSupabase(CustomerModel cust) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('customers').upsert(cust.toJson()).then((_) {
+        debugPrint('[HotelRepository] Customer ${cust.name} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Customer to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushStockItemToSupabase(StockItemModel item) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('stock_items').upsert(item.toSupabaseJson()).then((_) {
+        debugPrint('[HotelRepository] Stock Item ${item.name} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Stock Item to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushDeliveryRiderToSupabase(DeliveryRiderModel rider) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('delivery_riders').upsert(rider.toJson()).then((_) {
+        debugPrint('[HotelRepository] Delivery Rider ${rider.name} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Delivery Rider to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushPurchaseToSupabase(PurchaseEntry entry) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('purchases').upsert(entry.toSupabaseJson()).then((_) {
+        debugPrint('[HotelRepository] Purchase ${entry.invoiceNumber} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Purchase to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushExpenseToSupabase(ExpenseEntry entry) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('expenses').upsert(entry.toSupabaseJson()).then((_) {
+        debugPrint('[HotelRepository] Expense ${entry.voucherNo} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Expense to Supabase: $e');
+      });
+    } catch (_) {}
+  }
+
+  void _pushHousekeepingTaskToSupabase(HousekeepingTaskModel task) {
+    if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
+    try {
+      SupabaseConfig.client!.from('housekeeping_tasks').upsert(task.toJson()).then((_) {
+        debugPrint('[HotelRepository] Housekeeping Task ${task.id} pushed to Supabase online.');
+      }).catchError((e) {
+        debugPrint('[HotelRepository] Error pushing Housekeeping Task to Supabase: $e');
       });
     } catch (_) {}
   }
@@ -1071,24 +1330,10 @@ class HotelRepository extends ChangeNotifier {
   List<PosOrderModel> get posOrders => _posOrders;
 
   List<BanquetHallModel> get activeBranchBanquetHalls {
-    try {
-      if (_banquetHalls.isEmpty) {
-        _banquetHalls = List.from(MockHotelData.initialBanquetHalls);
-      }
-    } catch (_) {
-      _banquetHalls = List.from(MockHotelData.initialBanquetHalls);
-    }
     return _banquetHalls.where((h) => h.branchId == _activeBranch.id).toList();
   }
 
   List<PosBillRecord> get activeBranchPosBills {
-    try {
-      if (_posBills.isEmpty) {
-        _posBills = MockHotelData.getInitialPosBills();
-      }
-    } catch (_) {
-      _posBills = MockHotelData.getInitialPosBills();
-    }
     return _posBills.where((b) => b.branchId == _activeBranch.id).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -1206,6 +1451,7 @@ class HotelRepository extends ChangeNotifier {
     final idx = _appUsers.indexWhere((u) => u.id == userId);
     if (idx != -1) {
       _appUsers[idx] = _appUsers[idx].copyWith(branchAccess: branchIds);
+      _pushUserToSupabase(_appUsers[idx]);
       if (_currentErpUser.id == userId) {
         _currentErpUser = _appUsers[idx];
         final allowed = accessibleBranches;
@@ -1232,11 +1478,15 @@ class HotelRepository extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _appUsers.add(newUser);
+    _pushUserToSupabase(newUser);
     notifyListeners();
   }
 
   void deleteAppUser(String userId) {
     _appUsers.removeWhere((u) => u.id == userId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('app_users').delete().eq('id', userId).then((_) {}).catchError((_) {});
+    }
     if (_currentErpUser.id == userId && _appUsers.isNotEmpty) {
       _currentErpUser = _appUsers.first;
       final allowed = accessibleBranches;
@@ -1426,6 +1676,11 @@ class HotelRepository extends ChangeNotifier {
         'current_reservation_id': reservationId,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', roomId).then((_) {}).catchError((_) {});
+
+      _pushFolioToSupabase(newFolio);
+      for (final txn in transactions) {
+        _pushFolioTransactionToSupabase(txn);
+      }
     }
 
     notifyListeners();
@@ -1486,6 +1741,12 @@ class HotelRepository extends ChangeNotifier {
       roomTypeName: roomTypeName,
     );
     _reservations.insert(0, newReservation);
+
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('guests').upsert(newGuest.toSupabaseJson()).then((_) {}).catchError((_) {});
+    }
+    _pushReservationToSupabase(newReservation);
+
     notifyListeners();
   }
 
@@ -1529,6 +1790,10 @@ class HotelRepository extends ChangeNotifier {
         status: 'settled',
         transactions: updatedTxns,
       );
+      _pushFolioToSupabase(_folios[folioIdx]);
+      if (balance > 0) {
+        _pushFolioTransactionToSupabase(updatedTxns.last);
+      }
     }
 
     // Update Reservation if exists
@@ -1540,6 +1805,7 @@ class HotelRepository extends ChangeNotifier {
         bookingStatus: ReservationStatus.checkedOut,
         actualCheckOut: DateTime.now(),
       );
+      _pushReservationToSupabase(_reservations[resIdx]);
     }
 
     // Mark Room Dirty & Generate Housekeeping Task
@@ -1548,22 +1814,22 @@ class HotelRepository extends ChangeNotifier {
       clearGuest: true,
       notes: 'Guest checked out. Ready for turnover cleaning.',
     );
+    _pushRoomToSupabase(_rooms[roomIdx]);
 
-    _housekeepingTasks.insert(
-      0,
-      HousekeepingTaskModel(
-        id: 'hk-${_uuid.v4().substring(0, 8)}',
-        branchId: _activeBranch.id,
-        roomId: room.id,
-        roomNumber: room.roomNumber,
-        floorNumber: room.floorNumber,
-        taskType: 'Checkout Deep Clean & Linen Turnover',
-        priority: HousekeepingPriority.urgentRush,
-        status: 'pending',
-        assignedStaff: 'Housekeeping Team',
-        createdAt: DateTime.now(),
-      ),
+    final newTask = HousekeepingTaskModel(
+      id: 'hk-${_uuid.v4().substring(0, 8)}',
+      branchId: _activeBranch.id,
+      roomId: room.id,
+      roomNumber: room.roomNumber,
+      floorNumber: room.floorNumber,
+      taskType: 'Checkout Deep Clean & Linen Turnover',
+      priority: HousekeepingPriority.urgentRush,
+      status: 'pending',
+      assignedStaff: 'Housekeeping Team',
+      createdAt: DateTime.now(),
     );
+    _housekeepingTasks.insert(0, newTask);
+    _pushHousekeepingTaskToSupabase(newTask);
 
     notifyListeners();
   }
@@ -1597,6 +1863,9 @@ class HotelRepository extends ChangeNotifier {
 
     final updatedTxns = List<FolioTransactionModel>.from(currentFolio.transactions)..add(newTxn);
     _folios[folioIdx] = currentFolio.copyWith(transactions: updatedTxns);
+
+    _pushFolioToSupabase(_folios[folioIdx]);
+    _pushFolioTransactionToSupabase(newTxn);
 
     notifyListeners();
     return true;
@@ -1633,6 +1902,9 @@ class HotelRepository extends ChangeNotifier {
       transactions: updatedTxns,
       status: isFullyPaid ? 'settled' : 'open',
     );
+
+    _pushFolioToSupabase(_folios[folioIdx]);
+    _pushFolioTransactionToSupabase(newPayment);
 
     notifyListeners();
   }
@@ -1981,6 +2253,7 @@ class HotelRepository extends ChangeNotifier {
       amenities: [],
     );
     _roomTypes.add(newType);
+    _pushRoomTypeToSupabase(newType);
     notifyListeners();
   }
 
@@ -1988,10 +2261,12 @@ class HotelRepository extends ChangeNotifier {
     final idx = _roomTypes.indexWhere((rt) => rt.id == roomTypeId);
     if (idx != -1) {
       _roomTypes[idx] = _roomTypes[idx].copyWith(basePrice: newPrice);
+      _pushRoomTypeToSupabase(_roomTypes[idx]);
       // Also update all rooms of this type
       for (int i = 0; i < _rooms.length; i++) {
         if (_rooms[i].roomTypeId == roomTypeId) {
           _rooms[i] = _rooms[i].copyWith(basePrice: newPrice);
+          _pushRoomToSupabase(_rooms[i]);
         }
       }
       notifyListeners();
@@ -2007,6 +2282,7 @@ class HotelRepository extends ChangeNotifier {
         maxAdults: maxAdults,
         description: description,
       );
+      _pushRoomTypeToSupabase(_roomTypes[idx]);
       notifyListeners();
     }
   }
@@ -2016,6 +2292,9 @@ class HotelRepository extends ChangeNotifier {
     final hasRooms = _rooms.any((r) => r.roomTypeId == roomTypeId && r.branchId == _activeBranch.id);
     if (!hasRooms) {
       _roomTypes.removeWhere((rt) => rt.id == roomTypeId);
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('room_types').delete().eq('id', roomTypeId).then((_) {}).catchError((_) {});
+      }
       notifyListeners();
     }
   }
@@ -2026,12 +2305,14 @@ class HotelRepository extends ChangeNotifier {
       (f) => f['branch_id'] == _activeBranch.id && f['floor_number'] == floorNumber,
     );
     if (!exists) {
-      _floors.add({
+      final newFloor = {
         'id': 'floor-${_uuid.v4().substring(0, 6)}',
         'branch_id': _activeBranch.id,
         'floor_number': floorNumber,
         'label': label ?? 'Floor $floorNumber',
-      });
+      };
+      _floors.add(newFloor);
+      _pushFloorToSupabase(newFloor);
       notifyListeners();
     }
   }
@@ -2044,6 +2325,9 @@ class HotelRepository extends ChangeNotifier {
       _floors.removeWhere(
         (f) => f['branch_id'] == _activeBranch.id && f['floor_number'] == floorNumber,
       );
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('floors').delete().eq('branch_id', _activeBranch.id).eq('floor_number', floorNumber).then((_) {}).catchError((_) {});
+      }
       notifyListeners();
     }
   }
@@ -2075,6 +2359,7 @@ class HotelRepository extends ChangeNotifier {
       amenities: roomType.amenities,
     );
     _rooms.add(newRoom);
+    _pushRoomToSupabase(newRoom);
     notifyListeners();
   }
 
@@ -2087,6 +2372,7 @@ class HotelRepository extends ChangeNotifier {
         bedType: bedType,
         maxOccupancy: maxOccupancy,
       );
+      _pushRoomToSupabase(_rooms[idx]);
       notifyListeners();
     }
   }
@@ -2095,6 +2381,9 @@ class HotelRepository extends ChangeNotifier {
     final room = _rooms.firstWhere((r) => r.id == roomId, orElse: () => _rooms.first);
     if (room.status != RoomStatus.occupied) {
       _rooms.removeWhere((r) => r.id == roomId);
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('rooms').delete().eq('id', roomId).then((_) {}).catchError((_) {});
+      }
       notifyListeners();
     }
   }
@@ -2123,6 +2412,7 @@ class HotelRepository extends ChangeNotifier {
       isAvailable: true,
     );
     _posMenuItems.add(newItem);
+    _pushMenuItemToSupabase(newItem);
     notifyListeners();
   }
 
@@ -2130,6 +2420,7 @@ class HotelRepository extends ChangeNotifier {
     final idx = _posMenuItems.indexWhere((m) => m.id == itemId);
     if (idx != -1) {
       _posMenuItems[idx] = _posMenuItems[idx].copyWith(price: newPrice);
+      _pushMenuItemToSupabase(_posMenuItems[idx]);
       notifyListeners();
     }
   }
@@ -2158,12 +2449,16 @@ class HotelRepository extends ChangeNotifier {
         imageUrl: imageUrl,
         emoji: emoji,
       );
+      _pushMenuItemToSupabase(_posMenuItems[idx]);
       notifyListeners();
     }
   }
 
   void deleteMenuItem(String itemId) {
     _posMenuItems.removeWhere((m) => m.id == itemId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('pos_menu_items').delete().eq('id', itemId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -2190,6 +2485,7 @@ class HotelRepository extends ChangeNotifier {
       idNumber: idNumber,
     );
     _staff.add(newStaff);
+    _pushStaffToSupabase(newStaff);
     notifyListeners();
   }
 
@@ -2211,6 +2507,7 @@ class HotelRepository extends ChangeNotifier {
         role: role,
         shift: shift,
       );
+      _pushStaffToSupabase(_staff[idx]);
       notifyListeners();
     }
   }
@@ -2219,12 +2516,16 @@ class HotelRepository extends ChangeNotifier {
     final idx = _staff.indexWhere((s) => s.id == staffId);
     if (idx != -1) {
       _staff[idx] = _staff[idx].copyWith(isActive: !_staff[idx].isActive);
+      _pushStaffToSupabase(_staff[idx]);
       notifyListeners();
     }
   }
 
   void removeStaff(String staffId) {
     _staff.removeWhere((s) => s.id == staffId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('staff_members').delete().eq('id', staffId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -2246,6 +2547,7 @@ class HotelRepository extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _appUsers.add(newUser);
+    _pushUserToSupabase(newUser);
     notifyListeners();
   }
 
@@ -2257,12 +2559,16 @@ class HotelRepository extends ChangeNotifier {
         branchAccess: branchAccess,
         isActive: isActive,
       );
+      _pushUserToSupabase(_appUsers[idx]);
       notifyListeners();
     }
   }
 
   void removeUser(String userId) {
     _appUsers.removeWhere((u) => u.id == userId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('app_users').delete().eq('id', userId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -2401,6 +2707,7 @@ class HotelRepository extends ChangeNotifier {
     );
     _registeredCustomers.insert(0, newCust);
     _currentCustomer = newCust;
+    _pushCustomerToSupabase(newCust);
     notifyListeners();
   }
 
@@ -2427,6 +2734,11 @@ class HotelRepository extends ChangeNotifier {
       final updated = List<CustomerAddressModel>.from(_currentCustomer!.addresses)..add(address);
       _currentCustomer = _currentCustomer!.copyWith(addresses: updated);
       _selectedDeliveryAddress = address;
+      final cIdx = _registeredCustomers.indexWhere((c) => c.id == _currentCustomer!.id);
+      if (cIdx != -1) {
+        _registeredCustomers[cIdx] = _currentCustomer!;
+      }
+      _pushCustomerToSupabase(_currentCustomer!);
       notifyListeners();
     }
   }
@@ -2641,6 +2953,7 @@ class HotelRepository extends ChangeNotifier {
   // ── Delivery Rider CRUD ───────────────────────────────────────────────────
   void addDeliveryRider(DeliveryRiderModel rider) {
     _deliveryRiders.add(rider);
+    _pushDeliveryRiderToSupabase(rider);
     notifyListeners();
   }
 
@@ -2648,12 +2961,16 @@ class HotelRepository extends ChangeNotifier {
     final idx = _deliveryRiders.indexWhere((r) => r.id == updated.id);
     if (idx != -1) {
       _deliveryRiders[idx] = updated;
+      _pushDeliveryRiderToSupabase(updated);
       notifyListeners();
     }
   }
 
   void removeDeliveryRider(String riderId) {
     _deliveryRiders.removeWhere((r) => r.id == riderId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('delivery_riders').delete().eq('id', riderId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -2661,16 +2978,9 @@ class HotelRepository extends ChangeNotifier {
     final idx = _deliveryRiders.indexWhere((r) => r.id == riderId);
     if (idx != -1) {
       final r = _deliveryRiders[idx];
-      _deliveryRiders[idx] = DeliveryRiderModel(
-        id: r.id,
-        name: r.name,
-        phone: r.phone,
-        vehicleNo: r.vehicleNo,
-        rating: r.rating,
-        deliveriesCompleted: r.deliveriesCompleted,
-        isAvailable: !r.isAvailable,
-        photoUrl: r.photoUrl,
-      );
+      final updated = r.copyWith(isAvailable: !r.isAvailable);
+      _deliveryRiders[idx] = updated;
+      _pushDeliveryRiderToSupabase(updated);
       notifyListeners();
     }
   }
@@ -2908,6 +3218,7 @@ class HotelRepository extends ChangeNotifier {
         status: RoomStatus.outOfOrder,
         notes: 'Maintenance: $issueDescription [Reported: ${reportedBy ?? "Housekeeping Mobile"}]',
       );
+      _pushRoomToSupabase(_rooms[roomIdx]);
       notifyListeners();
     }
   }
@@ -3041,6 +3352,11 @@ class HotelRepository extends ChangeNotifier {
     if (_currentCustomer != null) {
       final updatedAddresses = List<CustomerAddressModel>.from(_currentCustomer!.addresses)..add(address);
       _currentCustomer = _currentCustomer!.copyWith(addresses: updatedAddresses);
+      final cIdx = _registeredCustomers.indexWhere((c) => c.id == _currentCustomer!.id);
+      if (cIdx != -1) {
+        _registeredCustomers[cIdx] = _currentCustomer!;
+      }
+      _pushCustomerToSupabase(_currentCustomer!);
     }
     _selectedDeliveryAddress = address;
     notifyListeners();
@@ -3061,6 +3377,7 @@ class HotelRepository extends ChangeNotifier {
 
   void addPurchaseEntry(PurchaseEntry entry) {
     _purchases.insert(0, entry);
+    _pushPurchaseToSupabase(entry);
 
     // Automatically synchronize & increment live Stock & Inventory levels!
     for (final item in entry.items) {
@@ -3071,11 +3388,13 @@ class HotelRepository extends ChangeNotifier {
 
       if (matchIdx != -1) {
         final existing = _stockItems[matchIdx];
-        _stockItems[matchIdx] = existing.copyWith(
+        final updated = existing.copyWith(
           currentStock: existing.currentStock + item.quantity,
           unitPrice: item.unitPrice > 0 ? item.unitPrice : existing.unitPrice,
           lastRestockedAt: entry.purchaseDate,
         );
+        _stockItems[matchIdx] = updated;
+        _pushStockItemToSupabase(updated);
       } else {
         final prefix = item.category.length >= 2 ? item.category.substring(0, 2).toUpperCase() : 'SK';
         final newStock = StockItemModel(
@@ -3092,6 +3411,7 @@ class HotelRepository extends ChangeNotifier {
           lastRestockedAt: entry.purchaseDate,
         );
         _stockItems.add(newStock);
+        _pushStockItemToSupabase(newStock);
       }
     }
 
@@ -3119,6 +3439,7 @@ class HotelRepository extends ChangeNotifier {
 
   void addStockItem(StockItemModel item) {
     _stockItems.add(item);
+    _pushStockItemToSupabase(item);
     notifyListeners();
   }
 
@@ -3126,6 +3447,7 @@ class HotelRepository extends ChangeNotifier {
     final idx = _stockItems.indexWhere((s) => s.id == item.id);
     if (idx != -1) {
       _stockItems[idx] = item;
+      _pushStockItemToSupabase(item);
       notifyListeners();
     }
   }
@@ -3135,13 +3457,18 @@ class HotelRepository extends ChangeNotifier {
     if (idx != -1) {
       final existing = _stockItems[idx];
       final newQty = (existing.currentStock + delta).clamp(0.0, 999999.0);
-      _stockItems[idx] = existing.copyWith(currentStock: newQty);
+      final updated = existing.copyWith(currentStock: newQty);
+      _stockItems[idx] = updated;
+      _pushStockItemToSupabase(updated);
       notifyListeners();
     }
   }
 
   void deleteStockItem(String itemId) {
     _stockItems.removeWhere((s) => s.id == itemId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('stock_items').delete().eq('id', itemId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -3149,6 +3476,7 @@ class HotelRepository extends ChangeNotifier {
     final idx = _purchases.indexWhere((p) => p.id == entry.id);
     if (idx != -1) {
       _purchases[idx] = entry;
+      _pushPurchaseToSupabase(entry);
       notifyListeners();
       _saveAccountingData();
     }
@@ -3156,12 +3484,16 @@ class HotelRepository extends ChangeNotifier {
 
   void deletePurchaseEntry(String id) {
     _purchases.removeWhere((p) => p.id == id);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('purchases').delete().eq('id', id).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
     _saveAccountingData();
   }
 
   void addExpenseEntry(ExpenseEntry entry) {
     _expenses.insert(0, entry);
+    _pushExpenseToSupabase(entry);
     notifyListeners();
     _saveAccountingData();
   }
@@ -3170,6 +3502,7 @@ class HotelRepository extends ChangeNotifier {
     final idx = _expenses.indexWhere((e) => e.id == entry.id);
     if (idx != -1) {
       _expenses[idx] = entry;
+      _pushExpenseToSupabase(entry);
       notifyListeners();
       _saveAccountingData();
     }
@@ -3177,6 +3510,9 @@ class HotelRepository extends ChangeNotifier {
 
   void deleteExpenseEntry(String id) {
     _expenses.removeWhere((e) => e.id == id);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('expenses').delete().eq('id', id).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
     _saveAccountingData();
   }
@@ -3392,12 +3728,16 @@ class HotelRepository extends ChangeNotifier {
         totalVisits: old.totalVisits,
         joinedDate: old.joinedDate,
       );
+      _pushCustomerToSupabase(_registeredCustomers[idx]);
       notifyListeners();
     }
   }
 
   void deleteCustomer(String customerId) {
     _registeredCustomers.removeWhere((c) => c.id == customerId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('customers').delete().eq('id', customerId).then((_) {}).catchError((_) {});
+    }
     notifyListeners();
   }
 
@@ -3418,6 +3758,7 @@ class HotelRepository extends ChangeNotifier {
         totalVisits: old.totalVisits,
         joinedDate: old.joinedDate,
       );
+      _pushCustomerToSupabase(_registeredCustomers[idx]);
       notifyListeners();
     }
   }
@@ -3449,8 +3790,57 @@ class HotelRepository extends ChangeNotifier {
         referenceId: old.referenceId,
         items: old.items,
       );
+      if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+        SupabaseConfig.client!.from('pos_bills').update({
+          'payment_status': 'paid',
+          'payment_method': paymentMode,
+        }).eq('bill_number', invoiceNumber).then((_) {}).catchError((_) {});
+      }
       notifyListeners();
     }
+  }
+
+  // ── Banquet & Conference Halls Management ──
+  void _pushBanquetHallToSupabase(BanquetHallModel hall) {
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('banquet_halls').upsert(hall.toJson()).then((_) {}).catchError((_) {});
+    }
+  }
+
+  void addBanquetHall({
+    required String name,
+    required int capacity,
+    required double baseRental,
+    required String features,
+  }) {
+    final newHall = BanquetHallModel(
+      id: 'hall-${_uuid.v4().substring(0, 8)}',
+      branchId: _activeBranch.id,
+      name: name,
+      capacity: capacity,
+      baseRental: baseRental,
+      features: features,
+    );
+    _banquetHalls.add(newHall);
+    _pushBanquetHallToSupabase(newHall);
+    notifyListeners();
+  }
+
+  void updateBanquetHall(BanquetHallModel hall) {
+    final idx = _banquetHalls.indexWhere((h) => h.id == hall.id);
+    if (idx != -1) {
+      _banquetHalls[idx] = hall;
+      _pushBanquetHallToSupabase(hall);
+      notifyListeners();
+    }
+  }
+
+  void deleteBanquetHall(String hallId) {
+    _banquetHalls.removeWhere((h) => h.id == hallId);
+    if (SupabaseConfig.isInitialized && SupabaseConfig.client != null) {
+      SupabaseConfig.client!.from('banquet_halls').delete().eq('id', hallId).then((_) {}).catchError((_) {});
+    }
+    notifyListeners();
   }
 }
 

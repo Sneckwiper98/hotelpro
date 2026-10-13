@@ -107,6 +107,29 @@ class ReservationModel {
     guestPhone: json['guest_phone'] as String? ?? '',
     guestVipTier: VipTier.regular,
     roomNumber: json['room_number'] as String? ?? '',
-    roomTypeName: 'Deluxe Room',
+    roomTypeName: json['room_type_name'] as String? ?? 'Deluxe Room',
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'booking_reference': bookingReference,
+    'branch_id': branchId,
+    'guest_id': guestId,
+    'room_id': roomId,
+    'room_type_id': roomTypeId,
+    'check_in_date': checkInDate.toIso8601String(),
+    'check_out_date': checkOutDate.toIso8601String(),
+    'actual_check_in': actualCheckIn?.toIso8601String(),
+    'actual_check_out': actualCheckOut?.toIso8601String(),
+    'booking_status': bookingStatus.code,
+    'booking_source': bookingSource,
+    'rate_per_night': ratePerNight,
+    'advance_paid': advancePaid,
+    'special_notes': specialNotes,
+    'guest_name': guestName,
+    'guest_phone': guestPhone,
+    'room_number': roomNumber,
+    'room_type_name': roomTypeName,
+  };
 }
+
