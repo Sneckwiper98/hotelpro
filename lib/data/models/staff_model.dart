@@ -169,14 +169,23 @@ class StaffModel {
         'branch_id': branchId,
         'full_name': fullName,
         'phone': phone,
-        'email': email,
         'department': department.code,
         'role': role.code,
         'shift': shift.code,
         'is_active': isActive,
         'joined_date': joinedDate.toIso8601String().substring(0, 10),
-        'photo_url': photoUrl,
-        'id_number': idNumber,
+      };
+
+  Map<String, dynamic> toSupabaseJson() => {
+        'id': id,
+        'branch_id': branchId,
+        'full_name': fullName,
+        'phone': phone,
+        'department': department.code,
+        'role': role.code,
+        'shift': shift.code,
+        'is_active': isActive,
+        'joined_date': joinedDate.toIso8601String().substring(0, 10),
       };
 }
 

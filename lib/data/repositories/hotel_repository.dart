@@ -910,7 +910,7 @@ class HotelRepository extends ChangeNotifier {
   void _pushStaffToSupabase(StaffModel staff) {
     if (!SupabaseConfig.isInitialized || SupabaseConfig.client == null) return;
     try {
-      SupabaseConfig.client!.from('staff_members').upsert(staff.toJson()).then((_) {
+      SupabaseConfig.client!.from('staff_members').upsert(staff.toSupabaseJson()).then((_) {
         debugPrint('[HotelRepository] Staff ${staff.fullName} pushed to Supabase online.');
       }).catchError((e) {
         debugPrint('[HotelRepository] Error pushing Staff to Supabase: $e');
