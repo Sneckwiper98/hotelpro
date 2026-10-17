@@ -101,11 +101,18 @@ android {
         manifestPlaceholders["appName"] = finalAppName
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("hotelpro_release.jks")
+            storePassword = "hotelpro12345"
+            keyAlias = "hotelpro"
+            keyPassword = "hotelpro12345"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

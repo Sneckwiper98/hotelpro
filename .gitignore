@@ -50,6 +50,7 @@ windows/flutter/ephemeral/
 key.properties
 *.jks
 *.keystore
+!android/app/hotelpro_release.jks
 *.p12
 *.key
 *.pem
