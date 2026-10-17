@@ -373,7 +373,7 @@ class _AndroidAppsReleaseDialogState extends State<AndroidAppsReleaseDialog> {
                       AppUpdateService.checkAndPrompt(context, silent: false);
                     },
                     icon: const Icon(Icons.cloud_sync_rounded, size: 15, color: Color(0xFF0C2461)),
-                    label: const Text('Check GitHub Cloud Updates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0C2461))),
+                    label: const Text('Check for Updates', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0C2461))),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFF0C2461)),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

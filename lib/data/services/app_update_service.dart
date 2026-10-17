@@ -45,7 +45,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String currentInstalledVersion = '1.0.8';
+  static const String currentInstalledVersion = '1.0.9';
 
   static String? _dismissedVersion;
   static bool _isChecking = false;
@@ -84,8 +84,12 @@ class AppUpdateService {
       final latestSegments = latestParts[0].split('.').map((s) => int.tryParse(s) ?? 0).toList();
       final currentSegments = currentParts[0].split('.').map((s) => int.tryParse(s) ?? 0).toList();
 
-      while (latestSegments.length < 3) latestSegments.add(0);
-      while (currentSegments.length < 3) currentSegments.add(0);
+      while (latestSegments.length < 3) {
+        latestSegments.add(0);
+      }
+      while (currentSegments.length < 3) {
+        currentSegments.add(0);
+      }
 
       for (int i = 0; i < 3; i++) {
         if (latestSegments[i] > currentSegments[i]) return true;
@@ -280,7 +284,7 @@ class AppUpdateService {
     final zipFile = File('${tempDir.path}\\hotelpro_update_${info.latestVersion}.zip');
     final extractDir = Directory('${tempDir.path}\\hotelpro_extracted_${info.latestVersion}');
 
-    onProgress(0.05, 'Connecting to GitHub server...');
+    onProgress(0.05, 'Connecting to update server...');
 
     // 1. Download
     await downloadFileWithProgress(

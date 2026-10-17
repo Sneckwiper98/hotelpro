@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../data/services/app_update_service.dart';
 
 class AppUpdateDialog extends StatefulWidget {
@@ -32,7 +31,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         _isUpdating = true;
         _errorMessage = null;
         _progress = 0.05;
-        _statusMessage = 'Connecting to GitHub server...';
+        _statusMessage = 'Connecting to update server...';
       });
 
       try {
@@ -51,12 +50,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         if (mounted) {
           setState(() {
             _isUpdating = false;
-            _errorMessage = 'In-app update notice: $e';
+            _errorMessage = 'Update error: $e';
           });
         }
       }
     } else {
-      // Android / Other mobile: Launch direct APK download
+      // Android / Mobile: Direct APK download & prompt
       widget.onDismiss();
       AppUpdateService.downloadUpdate(widget.updateInfo.downloadUrl);
     }
@@ -66,26 +65,25 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isWindows = !kIsWeb && Platform.isWindows;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 24,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 20,
       backgroundColor: Colors.transparent,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
+        constraints: const BoxConstraints(maxWidth: 440),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E222D) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
           ],
           border: Border.all(
-            color: const Color(0xFF1E8449).withOpacity(0.35),
+            color: const Color(0xFF1E8449).withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -93,55 +91,58 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Premium Header ──────────────────────────────────────
+            // ── Clean Header ──────────────────────────────────────
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF0E3A24), Color(0xFF1E8449)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(19)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
                     ),
                     child: Icon(
                       _isUpdating ? Icons.sync_rounded : Icons.system_update_rounded,
                       color: Colors.white,
-                      size: 28,
+                      size: 26,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _isUpdating
-                              ? 'Updating In-Place • ऐप अपडेट हो रहा है'
-                              : 'Update Available! • नया अपडेट उपलब्ध है',
+                              ? 'Updating In Progress...'
+                              : 'New Version Available.. Update Now',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: 15.5,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
+                            letterSpacing: 0.2,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
-                          '${widget.updateInfo.targetApp.displayName} • v${widget.updateInfo.latestVersion}',
+                          widget.updateInfo.targetApp.displayName,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12.5,
                           ),
                         ),
                       ],
@@ -152,17 +153,16 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
             ),
 
             if (_isUpdating) ...[
-              // ── Live Progress Section (For Seamless In-App Updating) ──────
+              // ── Progress UI (Windows In-App Update) ───────────────
               Padding(
-                padding: const EdgeInsets.all(28),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Updating System Files...',
+                          'Downloading & Installing...',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -173,27 +173,27 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                           '${(_progress * 100).toInt()}%',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontSize: 14,
                             color: Color(0xFF1E8449),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: _progress.clamp(0.0, 1.0),
-                        minHeight: 10,
-                        backgroundColor: Colors.grey.withOpacity(0.2),
+                        minHeight: 8,
+                        backgroundColor: Colors.grey.withValues(alpha: 0.2),
                         valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1E8449)),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Text(
                       _statusMessage,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         color: isDark ? Colors.white70 : Colors.black54,
                         fontStyle: FontStyle.italic,
                       ),
@@ -201,19 +201,19 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     ),
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E8449).withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF1E8449).withOpacity(0.25)),
+                        color: const Color(0xFF1E8449).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF1E8449).withValues(alpha: 0.25)),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.check_circle_outline_rounded, color: Color(0xFF1E8449), size: 18),
-                          SizedBox(width: 10),
+                          Icon(Icons.info_outline_rounded, color: Color(0xFF1E8449), size: 16),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Software will automatically restart into the new version once ready. No manual setup needed.',
+                              'Software will restart automatically when complete.',
                               style: TextStyle(fontSize: 11.5, color: Color(0xFF1E8449)),
                             ),
                           ),
@@ -224,185 +224,141 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 ),
               ),
             ] else ...[
-              // ── Version Comparison Badges ────────────────────────────
+              // ── Clean Version Card & Prompt ───────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'CURRENT VERSION',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade600,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'v${widget.updateInfo.currentVersion}',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white70 : Colors.black87,
-                              ),
-                            ),
-                          ],
+                    // Version Badges
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF14171E) : const Color(0xFFF4F6F8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.black12,
                         ),
                       ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Icon(Icons.arrow_forward_rounded, color: Color(0xFF1E8449), size: 24),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E8449).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF1E8449).withOpacity(0.4)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'LATEST RELEASE',
+                                  'CURRENT',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF1E8449).withOpacity(0.9),
+                                    color: Colors.grey.shade600,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'v${widget.updateInfo.currentVersion}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white70 : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Color(0xFF1E8449),
+                            size: 20,
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF1E8449),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
-                                    'NEW',
-                                    style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                                    'LATEST',
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'v${widget.updateInfo.latestVersion}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1E8449),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'v${widget.updateInfo.latestVersion}',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E8449),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── What's New / Release Notes ───────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.auto_awesome_rounded, size: 16, color: Color(0xFFD4AC0D)),
-                        const SizedBox(width: 6),
-                        Text(
-                          "What's New in v${widget.updateInfo.latestVersion}:",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        if (widget.updateInfo.publishedAt != null) ...[
-                          const Spacer(),
-                          Text(
-                            DateFormat('dd MMM yyyy').format(widget.updateInfo.publishedAt!),
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF14171E) : const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.withOpacity(0.15)),
                       ),
-                      child: SingleChildScrollView(
-                        child: Text(
-                          widget.updateInfo.releaseNotes.trim().isNotEmpty
-                              ? widget.updateInfo.releaseNotes.trim()
-                              : '• Seamless In-App Updater for Windows Desktop.\n• 2-way Realtime Cloud Sync across all 5 Android Apps.\n• Stability & performance upgrades.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.45,
-                            color: isDark ? Colors.white70 : Colors.black87,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'A new version of ${widget.updateInfo.targetApp.displayName} is ready to install with performance improvements and bug fixes.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                        color: isDark ? Colors.white70 : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      isWindows
-                          ? '⚡ सॉफ्टवेयर के अंदर ही अपडेट डाउनलोड होकर 2 सेकंड में रीस्टार्ट हो जाएगा (अलग से डाउनलोड या री-इंस्टॉल करने की कोई जरूरत नहीं)।'
-                          : '⚡ "Update Now" पर क्लिक करते ही नया APK डाउनलोड होकर तुरंत इंस्टॉल हो जाएगा।',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                      'Do you want to update now?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         _errorMessage!,
-                        style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ],
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // ── Action Buttons ───────────────────────────────────────
+              // ── 2 Action Buttons: "Update Later" & "Yes" ───────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                 child: Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: widget.onDismiss,
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          side: BorderSide(color: Colors.grey.shade400),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.grey.shade400,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: Text(
-                          'Later • बाद में',
+                          'Update Later',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -413,29 +369,28 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      flex: 2,
                       child: ElevatedButton.icon(
                         onPressed: _handleUpdate,
-                        icon: Icon(
-                          isWindows ? Icons.auto_mode_rounded : Icons.download_rounded,
+                        icon: const Icon(
+                          Icons.check_circle_rounded,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
-                        label: Text(
-                          isWindows
-                              ? 'Update Inside App • तुरंत अपडेट करें'
-                              : 'Update Now • अभी अपडेट करें',
-                          style: const TextStyle(
-                            fontSize: 12.5,
+                        label: const Text(
+                          'Yes',
+                          style: TextStyle(
+                            fontSize: 13.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E8449),
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
