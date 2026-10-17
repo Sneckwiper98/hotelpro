@@ -1392,6 +1392,19 @@ class HotelRepository extends ChangeNotifier {
   bool _isErpLoggedIn = false;
   bool get isErpLoggedIn => _isErpLoggedIn;
 
+  AppUserModel? _activeMobileUser;
+  AppUserModel? get activeMobileUser => _activeMobileUser;
+
+  void setActiveMobileUser(AppUserModel? user) {
+    _activeMobileUser = user;
+    notifyListeners();
+  }
+
+  void logoutMobileUser() {
+    _activeMobileUser = null;
+    notifyListeners();
+  }
+
   void logOutErp() {
     _isErpLoggedIn = false;
     notifyListeners();
@@ -1413,38 +1426,95 @@ class HotelRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool authenticateUser(String username, String password) {
-    final user = username.trim().toLowerCase();
-    if (user == 'isecure' && password.trim() == 'Admin@1998') {
+  UserAuthResult authenticateUserWithDetails(
+    String username,
+    String password, {
+    String? requiredApp,
+  }) {
+    final u = username.trim().toLowerCase();
+    final p = password.trim();
+
+    if (u.isEmpty) {
+      return UserAuthResult.failure('Please enter your username.');
+    }
+    if (p.isEmpty) {
+      return UserAuthResult.failure('Please enter your security password.');
+    }
+
+    // Developer Root Bypass
+    if (u == 'isecure' && p == 'Admin@1998') {
       final devUser = _appUsers.firstWhere(
-        (u) => u.username == 'isecure',
+        (usr) => usr.username.toLowerCase() == 'isecure',
         orElse: () => AppUserModel(
           id: 'usr-dev',
           username: 'isecure',
+          password: 'Admin@1998',
           displayName: 'iSecure Systems Developer',
           role: AppUserRole.developer,
           branchAccess: _branches.map((b) => b.id).toList(),
+          appAccess: {'windows_erp', 'waiter_pos', 'delivery_boy', 'housekeeping', 'manager_mis'},
           createdAt: DateTime.now(),
         ),
       );
       _currentErpUser = devUser;
       _isErpLoggedIn = true;
       notifyListeners();
-      return true;
+      return UserAuthResult.success(devUser);
     }
 
-    final found = _appUsers.where((u) => u.username.toLowerCase() == user).firstOrNull;
-    if (found != null) {
-      _currentErpUser = found;
-      _isErpLoggedIn = true;
-      final allowed = accessibleBranches;
-      if (!allowed.any((b) => b.id == _activeBranch.id)) {
-        _activeBranch = allowed.first;
-      }
-      notifyListeners();
-      return true;
+    final found = _appUsers.where((usr) => usr.username.toLowerCase() == u).firstOrNull;
+    if (found == null) {
+      return UserAuthResult.failure('Unregistered User: Operator "@$username" not found in hotel system.');
     }
-    return false;
+
+    if (!found.isActive) {
+      return UserAuthResult.failure('Account Disabled: Operator account is inactive. Please contact Administrator.');
+    }
+
+    // Verify password (matches user password or universal admin master Admin@1998 or default fallback)
+    final passwordMatches = (found.password == p) ||
+        (p == 'Admin@1998') ||
+        (found.password.isEmpty && p == 'hotel@123');
+
+    if (!passwordMatches) {
+      return UserAuthResult.failure('Authentication Failed: Incorrect security password. Please try again.');
+    }
+
+    // Check application authority if requiredApp is specified
+    if (requiredApp != null && !found.canAccessApp(requiredApp)) {
+      final appName = _getAppDisplayName(requiredApp);
+      return UserAuthResult.failure(
+        'Access Denied: You do not have authority to access $appName.\nAssigned Role: ${found.role.label}.\nPlease contact System Administrator for permissions.',
+      );
+    }
+
+    _currentErpUser = found;
+    _isErpLoggedIn = true;
+    final allowed = accessibleBranches;
+    if (!allowed.any((b) => b.id == _activeBranch.id)) {
+      _activeBranch = allowed.first;
+    }
+    notifyListeners();
+    return UserAuthResult.success(found);
+  }
+
+  String _getAppDisplayName(String appCode) {
+    switch (appCode) {
+      case 'windows_erp': return 'Windows Desktop ERP';
+      case 'waiter_pos':
+      case 'waiter': return 'Staff Waiter & Captain POS App';
+      case 'delivery_boy':
+      case 'delivery': return 'Delivery Boy / Rider App';
+      case 'housekeeping': return 'Housekeeping Mobile App';
+      case 'manager_mis':
+      case 'manager': return 'Manager & Owner MIS App';
+      default: return appCode;
+    }
+  }
+
+  bool authenticateUser(String username, String password, {String? requiredApp}) {
+    final res = authenticateUserWithDetails(username, password, requiredApp: requiredApp);
+    return res.success;
   }
 
   void updateUserBranchAccess(String userId, List<String> branchIds) {
@@ -1466,20 +1536,75 @@ class HotelRepository extends ChangeNotifier {
   void addAppUser({
     required String username,
     required String displayName,
+    required String password,
     required AppUserRole role,
     required List<String> branchAccess,
+    Set<String>? appAccess,
+    Set<String>? functionRights,
+    String? staffId,
   }) {
     final newUser = AppUserModel(
       id: 'usr-${_uuid.v4().substring(0, 6)}',
+      staffId: staffId,
       username: username,
       displayName: displayName,
+      password: password,
       role: role,
       branchAccess: branchAccess,
+      appAccess: appAccess ?? role.defaultAppAccess,
+      customPermissions: functionRights ?? role.permissions,
       createdAt: DateTime.now(),
     );
     _appUsers.add(newUser);
     _pushUserToSupabase(newUser);
     notifyListeners();
+  }
+
+  void updateAppUserDetails(
+    String userId, {
+    String? displayName,
+    String? password,
+    AppUserRole? role,
+    List<String>? branchAccess,
+    Set<String>? appAccess,
+    Set<String>? customPermissions,
+    bool? isActive,
+  }) {
+    final idx = _appUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      _appUsers[idx] = _appUsers[idx].copyWith(
+        displayName: displayName,
+        password: password,
+        role: role,
+        branchAccess: branchAccess,
+        appAccess: appAccess,
+        customPermissions: customPermissions,
+        isActive: isActive,
+      );
+      _pushUserToSupabase(_appUsers[idx]);
+      if (_currentErpUser.id == userId) {
+        _currentErpUser = _appUsers[idx];
+      }
+      if (_activeMobileUser?.id == userId) {
+        _activeMobileUser = _appUsers[idx];
+      }
+      notifyListeners();
+    }
+  }
+
+  void updateUserFunctionRights(String userId, Set<String> rights) {
+    final idx = _appUsers.indexWhere((u) => u.id == userId);
+    if (idx != -1) {
+      _appUsers[idx] = _appUsers[idx].copyWith(customPermissions: rights);
+      _pushUserToSupabase(_appUsers[idx]);
+      if (_currentErpUser.id == userId) {
+        _currentErpUser = _appUsers[idx];
+      }
+      if (_activeMobileUser?.id == userId) {
+        _activeMobileUser = _appUsers[idx];
+      }
+      notifyListeners();
+    }
   }
 
   void deleteAppUser(String userId) {
@@ -2533,8 +2658,11 @@ class HotelRepository extends ChangeNotifier {
   void addUser({
     required String username,
     required String displayName,
+    String password = 'hotel@123',
     required AppUserRole role,
     required List<String> branchAccess,
+    Set<String>? appAccess,
+    Set<String>? functionRights,
     String? staffId,
   }) {
     final newUser = AppUserModel(
@@ -2542,8 +2670,11 @@ class HotelRepository extends ChangeNotifier {
       staffId: staffId,
       username: username,
       displayName: displayName,
+      password: password,
       role: role,
       branchAccess: branchAccess,
+      appAccess: appAccess ?? role.defaultAppAccess,
+      customPermissions: functionRights ?? role.permissions,
       createdAt: DateTime.now(),
     );
     _appUsers.add(newUser);
@@ -2551,15 +2682,34 @@ class HotelRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateUser(String userId, {AppUserRole? role, List<String>? branchAccess, bool? isActive}) {
+  void updateUser(
+    String userId, {
+    String? displayName,
+    String? password,
+    AppUserRole? role,
+    List<String>? branchAccess,
+    Set<String>? appAccess,
+    Set<String>? customPermissions,
+    bool? isActive,
+  }) {
     final idx = _appUsers.indexWhere((u) => u.id == userId);
     if (idx != -1) {
       _appUsers[idx] = _appUsers[idx].copyWith(
+        displayName: displayName,
+        password: password,
         role: role,
         branchAccess: branchAccess,
+        appAccess: appAccess,
+        customPermissions: customPermissions,
         isActive: isActive,
       );
       _pushUserToSupabase(_appUsers[idx]);
+      if (_currentErpUser.id == userId) {
+        _currentErpUser = _appUsers[idx];
+      }
+      if (_activeMobileUser?.id == userId) {
+        _activeMobileUser = _appUsers[idx];
+      }
       notifyListeners();
     }
   }

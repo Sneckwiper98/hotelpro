@@ -15,6 +15,7 @@ import '../../core/classic/classic_form_widgets.dart';
 import '../../core/classic/dialogs/classic_invoice_register_dialog.dart';
 import '../../core/classic/utils/report_utils.dart';
 import '../../core/components/hotel_logo_widget.dart';
+import 'dialogs/user_function_rights_dialog.dart';
 
 /// Classic Windows Desktop Hotel ERP Master View
 /// High-density spreadsheets for:
@@ -556,12 +557,13 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
 
     final columns = const [
       ClassicGridColumn(title: 'User ID', width: 75),
-      ClassicGridColumn(title: 'Login Username', width: 115),
-      ClassicGridColumn(title: 'Operator Display Name', width: 180),
-      ClassicGridColumn(title: 'System Role', width: 145),
-      ClassicGridColumn(title: 'Allocated Branches (Allowed)', width: 250),
-      ClassicGridColumn(title: 'Access Scope', width: 110, align: TextAlign.center),
-      ClassicGridColumn(title: 'Status', width: 80, align: TextAlign.center),
+      ClassicGridColumn(title: 'Login Username', width: 110),
+      ClassicGridColumn(title: 'Operator Display Name', width: 160),
+      ClassicGridColumn(title: 'System Role', width: 135),
+      ClassicGridColumn(title: 'Allowed Platforms & Apps', width: 220),
+      ClassicGridColumn(title: 'Password', width: 75, align: TextAlign.center),
+      ClassicGridColumn(title: 'Allocated Branches (Allowed)', width: 200),
+      ClassicGridColumn(title: 'Status', width: 75, align: TextAlign.center),
     ];
 
     final rows = [
@@ -574,6 +576,36 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
             '@${users[i].username}',
             users[i].displayName,
             users[i].role.label,
+            // Display allowed apps as badges
+            Wrap(
+              spacing: 3,
+              runSpacing: 2,
+              children: [
+                if (users[i].canAccessApp('windows_erp'))
+                  _win32AppBadge('Win ERP', const Color(0xFF1B4F72)),
+                if (users[i].canAccessApp('waiter_pos'))
+                  _win32AppBadge('Waiter', const Color(0xFF1E8449)),
+                if (users[i].canAccessApp('delivery_boy'))
+                  _win32AppBadge('Rider', const Color(0xFFD35400)),
+                if (users[i].canAccessApp('housekeeping'))
+                  _win32AppBadge('HK', const Color(0xFF6C3483)),
+                if (users[i].canAccessApp('manager_mis'))
+                  _win32AppBadge('MIS', const Color(0xFF922B21)),
+              ],
+            ),
+            // Password status
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              color: users[i].password.isNotEmpty ? const Color(0xFFD4EFDF) : const Color(0xFFFADBD8),
+              child: Text(
+                users[i].password.isNotEmpty ? 'SET' : 'NONE',
+                style: TextStyle(
+                  color: users[i].password.isNotEmpty ? const Color(0xFF196F3D) : const Color(0xFF922B21),
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             // Display allocated branches as readable names
             Text(
               users[i].branchAccess
@@ -586,24 +618,6 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              color: users[i].isDeveloper
-                  ? const Color(0xFFE8F8F5)
-                  : (users[i].branchAccess.length > 1 ? const Color(0xFFD4E6F1) : const Color(0xFFFCF3CF)),
-              child: Text(
-                users[i].isDeveloper
-                    ? 'DEV ROOT'
-                    : (users[i].branchAccess.length > 1 ? 'MULTI-BRANCH' : 'SINGLE BRANCH'),
-                style: TextStyle(
-                  color: users[i].isDeveloper
-                      ? const Color(0xFF006266)
-                      : (users[i].branchAccess.length > 1 ? const Color(0xFF1B4F72) : const Color(0xFF7D6608)),
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
             ),
             users[i].isActive
                 ? const Text('ACTIVE', style: TextStyle(color: Color(0xFF1E8449), fontSize: 9.5, fontWeight: FontWeight.bold))
@@ -621,14 +635,29 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
     );
   }
 
-  // ── Win32 Dialog: Edit User Branch Allocation ─────────────────────────
+  Widget _win32AppBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 8.5, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  // ── Win32 Dialog: Edit User Security, Password & App Access ───────────
   void _showBranchAllocationDialog(AppUserModel user, HotelRepository repo) {
     final currentUser = repo.currentErpUser;
     final canManageUsers = currentUser.isDeveloper || currentUser.role == AppUserRole.superAdmin;
     if (!canManageUsers) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Access Denied: Only Developer and Super Admin can allocate branches.'),
+          content: Text('Access Denied: Only Developer and Super Admin can manage user accounts.'),
           backgroundColor: Color(0xFFC0392B),
         ),
       );
@@ -636,8 +665,10 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
     }
 
     final allBranches = repo.branches;
-    // Set of selected branch IDs
     final selectedBranchIds = Set<String>.from(user.branchAccess);
+    final selectedAppAccess = Set<String>.from(user.appAccess);
+    final passCtrl = TextEditingController(text: user.password);
+    bool obscurePass = true;
 
     showDialog(
       context: context,
@@ -646,7 +677,7 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
           return Dialog(
             shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             child: Container(
-              width: 500,
+              width: 540,
               decoration: BoxDecoration(
                 color: ClassicErpTheme.panelBg,
                 border: Border.all(color: ClassicErpTheme.borderDark, width: 2),
@@ -666,10 +697,10 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.share_location_rounded, color: Colors.white, size: 15),
+                        const Icon(Icons.security_rounded, color: ClassicErpTheme.titleGold, size: 15),
                         const SizedBox(width: 6),
                         Text(
-                          'Branch Allocation — [${user.displayName} (@${user.username})]',
+                          'User Security & Authority — [${user.displayName} (@${user.username})]',
                           style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
@@ -710,54 +741,125 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
                                     Text(
-                                      'System Role: ${user.role.label} • Assigned Staff: ${user.staffId ?? "Direct Admin"}',
+                                      'System Role: ${user.role.label} • Active Status: ${user.isActive ? "Enabled" : "Disabled"}',
                                       style: const TextStyle(fontSize: 10.5, color: ClassicErpTheme.textMuted),
                                     ),
                                   ],
+                                ),
+                              ),
+                              // Function Rights Master Button
+                              InkWell(
+                                onTap: () {
+                                  UserFunctionRightsDialog.show(context, user: user);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1B4F72),
+                                    border: Border.all(color: const Color(0xFF0E3A5B)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.shield_rounded, size: 12, color: ClassicErpTheme.titleGold),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Rights Master',
+                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
 
-                        const SizedBox(height: 12),
-                        const Text(
-                          'CHECK THE BRANCHES ALLOCATED TO THIS USER:',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+                        const SizedBox(height: 10),
+                        // Password Setting Field
+                        Row(
+                          children: [
+                            const Text('Login Password:', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                height: 26,
+                                color: Colors.white,
+                                child: TextField(
+                                  controller: passCtrl,
+                                  obscureText: obscurePass,
+                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: ClassicErpTheme.textMain),
+                                  decoration: InputDecoration(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: Colors.grey.shade400)),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(obscurePass ? Icons.visibility_off : Icons.visibility, size: 14, color: ClassicErpTheme.textMuted),
+                                      onPressed: () => setModalState(() => obscurePass = !obscurePass),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
+
+                        const SizedBox(height: 10),
                         const Text(
-                          'User will strictly see and have access to ONLY the selected branches.',
-                          style: TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted),
+                          'ALLOWED PLATFORMS & MOBILE APPS (STRICT ACCESS CONTROL):',
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: ClassicErpTheme.borderDark),
+                          ),
+                          child: Column(
+                            children: [
+                              _appCheckRow('Windows Desktop ERP Software', 'windows_erp', selectedAppAccess, setModalState),
+                              _appCheckRow('Staff Waiter & Captain POS App', 'waiter_pos', selectedAppAccess, setModalState),
+                              _appCheckRow('Delivery Boy & Rider Partner App', 'delivery_boy', selectedAppAccess, setModalState),
+                              _appCheckRow('Housekeeping & Inspection App', 'housekeeping', selectedAppAccess, setModalState),
+                              _appCheckRow('Manager & Owner Live MIS App', 'manager_mis', selectedAppAccess, setModalState),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+                        const Text(
+                          'ALLOCATED BRANCHES:',
+                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+                        ),
+                        const SizedBox(height: 3),
 
                         // Checkboxes for all branches
                         Material(
                           color: Colors.white,
                           child: Container(
+                            height: 80,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
                             ),
-                            child: Column(
+                            child: ListView(
+                              padding: EdgeInsets.zero,
                               children: allBranches.map((b) {
                                 final isAllocated = selectedBranchIds.contains(b.id);
                                 return CheckboxListTile(
                                   dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                                   controlAffinity: ListTileControlAffinity.leading,
                                   value: isAllocated,
                                   title: Text(
-                                    '${b.code} — ${b.name}',
+                                    '${b.code} — ${b.name} (${b.city})',
                                     style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: 10.5,
                                       fontWeight: isAllocated ? FontWeight.bold : FontWeight.normal,
                                       color: isAllocated ? const Color(0xFF1B4F72) : Colors.black87,
                                     ),
-                                  ),
-                                  subtitle: Text(
-                                    'Location: ${b.city}, ${b.state} • Currency: ${b.currency}',
-                                    style: const TextStyle(fontSize: 9.5, color: Colors.grey),
                                   ),
                                   activeColor: const Color(0xFF1B4F72),
                                   onChanged: (val) {
@@ -766,14 +868,6 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                                         selectedBranchIds.add(b.id);
                                       } else if (selectedBranchIds.length > 1) {
                                         selectedBranchIds.remove(b.id);
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('A user must have at least one branch allocated.'),
-                                            backgroundColor: Colors.red,
-                                            duration: Duration(seconds: 1),
-                                          ),
-                                        );
                                       }
                                     });
                                   },
@@ -783,12 +877,11 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                           ),
                         ),
 
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
 
                         // Actions Row
                         Row(
                           children: [
-                            // Switch to this user button (Instant testing)
                             TextButton.icon(
                               icon: const Icon(Icons.switch_account_rounded, size: 14),
                               label: const Text('Switch To This User', style: TextStyle(fontSize: 10.5)),
@@ -819,17 +912,28 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                               ),
                               onPressed: () {
-                                repo.updateUserBranchAccess(user.id, selectedBranchIds.toList());
+                                if (passCtrl.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Password cannot be empty.'), backgroundColor: Colors.red),
+                                  );
+                                  return;
+                                }
+                                repo.updateAppUserDetails(
+                                  user.id,
+                                  password: passCtrl.text.trim(),
+                                  branchAccess: selectedBranchIds.toList(),
+                                  appAccess: selectedAppAccess,
+                                );
                                 Navigator.pop(ctx);
                                 setState(() {});
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Branch allocation updated for ${user.displayName}! (${selectedBranchIds.length} branch nodes)'),
+                                    content: Text('Security and authority updated for ${user.displayName}!'),
                                     backgroundColor: const Color(0xFF27AE60),
                                   ),
                                 );
                               },
-                              child: const Text('Save Allocation', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              child: const Text('Save Security & Authority', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
@@ -841,6 +945,48 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _appCheckRow(String title, String appCode, Set<String> selectedAppAccess, StateSetter setModalState) {
+    final checked = selectedAppAccess.contains(appCode);
+    return InkWell(
+      onTap: () {
+        setModalState(() {
+          if (checked) {
+            selectedAppAccess.remove(appCode);
+          } else {
+            selectedAppAccess.add(appCode);
+          }
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: checked,
+                activeColor: const Color(0xFF1B4F72),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (val) {
+                  setModalState(() {
+                    if (val == true) {
+                      selectedAppAccess.add(appCode);
+                    } else {
+                      selectedAppAccess.remove(appCode);
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(title, style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain)),
+          ],
+        ),
       ),
     );
   }
@@ -985,10 +1131,25 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                       ),
                       const SizedBox(width: 5),
                       _toolbarButton(
-                        icon: _activeMasterTab == 4 ? Icons.domain_verification_rounded : Icons.edit_note_rounded,
-                        label: _activeMasterTab == 4 ? 'Allocate Branch' : 'Edit Selected',
+                        icon: _activeMasterTab == 4 ? Icons.security_rounded : Icons.edit_note_rounded,
+                        label: _activeMasterTab == 4 ? 'Edit & Security' : 'Edit Selected',
                         onTap: () => _handleEditSelected(repo),
                       ),
+                      if (_activeMasterTab == 4) ...[
+                        const SizedBox(width: 5),
+                        _toolbarButton(
+                          icon: Icons.shield_rounded,
+                          label: 'Function Rights Master',
+                          isPrimary: true,
+                          onTap: () {
+                            final list = repo.appUsers;
+                            final selectedUser = (list.isNotEmpty && _selectedRowIndex < list.length)
+                                ? list[_selectedRowIndex]
+                                : null;
+                            UserFunctionRightsDialog.show(context, user: selectedUser);
+                          },
+                        ),
+                      ],
                       const SizedBox(width: 5),
                       _toolbarButton(
                         icon: Icons.refresh_rounded,
@@ -2978,18 +3139,21 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
 
     final userCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
+    final passCtrl = TextEditingController(text: 'Admin@123');
+    bool obscurePass = true;
     AppUserRole role = AppUserRole.frontDeskAgent;
     final allBranches = repo.branches;
     final selectedBranches = <String>{repo.activeBranch.id};
+    final selectedAppAccess = <String>{'windows_erp', 'waiter_pos'};
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => _win32DialogShell(
           context: ctx,
-          title: 'Add System User & Allocate Branches',
+          title: 'Add User — Windows ERP & Android Mobile Apps',
           icon: Icons.manage_accounts_rounded,
-          width: 500,
+          width: 530,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2997,21 +3161,83 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
               Row(
                 children: [
                   Expanded(
-                    child: _win32InputField('Login Username *', userCtrl, hint: 'e.g. rahul.fd'),
+                    child: _win32InputField('Login Username *', userCtrl, hint: 'e.g. priya.waiter'),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _win32InputField('Display Name *', nameCtrl, hint: 'e.g. Rahul Verma'),
+                    child: _win32InputField('Display Name *', nameCtrl, hint: 'e.g. Priya Singh'),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              ClassicErpDropdown<AppUserRole>(
-                label: 'User Role & Permissions',
-                isRequired: true,
-                value: role,
-                items: AppUserRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.label))).toList(),
-                onChanged: (v) => setModalState(() => role = v ?? AppUserRole.frontDeskAgent),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Login Password *', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain)),
+                        const SizedBox(height: 3),
+                        Container(
+                          height: 26,
+                          color: Colors.white,
+                          child: TextField(
+                            controller: passCtrl,
+                            obscureText: obscurePass,
+                            style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: ClassicErpTheme.textMain),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: Colors.grey.shade400)),
+                              suffixIcon: IconButton(
+                                icon: Icon(obscurePass ? Icons.visibility_off : Icons.visibility, size: 14, color: ClassicErpTheme.textMuted),
+                                onPressed: () => setModalState(() => obscurePass = !obscurePass),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ClassicErpDropdown<AppUserRole>(
+                      label: 'User Role & Permissions',
+                      isRequired: true,
+                      value: role,
+                      items: AppUserRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.label))).toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setModalState(() {
+                            role = v;
+                            selectedAppAccess.clear();
+                            selectedAppAccess.addAll(v.defaultAppAccess);
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text('Allowed Platforms & Mobile Apps *', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
+              const SizedBox(height: 3),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: ClassicErpTheme.borderDark),
+                ),
+                child: Column(
+                  children: [
+                    _appCheckRow('Windows Desktop ERP Software', 'windows_erp', selectedAppAccess, setModalState),
+                    _appCheckRow('Staff Waiter & Captain POS App', 'waiter_pos', selectedAppAccess, setModalState),
+                    _appCheckRow('Delivery Boy & Rider Partner App', 'delivery_boy', selectedAppAccess, setModalState),
+                    _appCheckRow('Housekeeping & Inspection App', 'housekeeping', selectedAppAccess, setModalState),
+                    _appCheckRow('Manager & Owner Live MIS App', 'manager_mis', selectedAppAccess, setModalState),
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
               const Text('Allocate Accessible Branches *', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain)),
@@ -3019,7 +3245,7 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
               Material(
                 color: Colors.white,
                 child: Container(
-                  height: 110,
+                  height: 75,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
@@ -3029,7 +3255,7 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
                     children: allBranches.map((b) => CheckboxListTile(
                       dense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      title: Text('${b.code} — ${b.name} (${b.city})', style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain)),
+                      title: Text('${b.code} — ${b.name} (${b.city})', style: const TextStyle(fontSize: 10.5, color: ClassicErpTheme.textMain)),
                       value: selectedBranches.contains(b.id),
                       activeColor: const Color(0xFF1B4F72),
                       onChanged: (v) {
@@ -3051,15 +3277,28 @@ class _ClassicMasterViewState extends State<ClassicMasterView> {
             _win32DialogButton('Cancel', () => Navigator.pop(ctx)),
             const SizedBox(width: 8),
             _win32DialogButton('Create Operator', () {
-              if (userCtrl.text.isNotEmpty && nameCtrl.text.isNotEmpty) {
+              if (userCtrl.text.isNotEmpty && nameCtrl.text.isNotEmpty && passCtrl.text.isNotEmpty) {
                 repo.addAppUser(
                   username: userCtrl.text.trim(),
                   displayName: nameCtrl.text.trim(),
+                  password: passCtrl.text.trim(),
                   role: role,
                   branchAccess: selectedBranches.toList(),
+                  appAccess: selectedAppAccess,
+                  functionRights: role.permissions,
                 );
                 Navigator.pop(ctx);
                 setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Operator ${nameCtrl.text.trim()} created with password and granted app permissions.'),
+                    backgroundColor: const Color(0xFF27AE60),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill all required fields including password.'), backgroundColor: Colors.red),
+                );
               }
             }, isPrimary: true),
           ],

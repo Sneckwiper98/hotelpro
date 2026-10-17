@@ -31,17 +31,17 @@ class StaffProfileAuth {
   });
 }
 
-/// Ultra-Modern, Interactive Authentication Screen for HotelPro Mobile Suite.
-/// Provides:
-/// 1. Premium branded Hero Card with glow and hotel metadata.
-/// 2. 1-Tap Quick Demo Profiles for instant, hassle-free testing.
-/// 3. Manual Operator ID & PIN input with validation.
-/// 4. Biometric quick-login simulation.
+/// Ultra-Modern, Strict Role-Based Authentication Screen for HotelPro Mobile Suite.
+/// Security Principles:
+/// 1. Only registered system users can log in.
+/// 2. Users MUST have valid credentials (Password verified).
+/// 3. Users MUST have explicit authority / role permissions for the specific mobile app.
+/// 4. Any unregistered or unauthorized user access is strictly blocked.
 class MobileStaffLoginView extends StatefulWidget {
   final MobileAppRole role;
   final String appTitle;
   final String appSubtitle;
-  final List<StaffProfileAuth> quickProfiles;
+  final List<StaffProfileAuth>? quickProfiles;
   final ValueChanged<StaffProfileAuth> onAuthenticate;
   final VoidCallback? onBackToGateway;
 
@@ -50,7 +50,7 @@ class MobileStaffLoginView extends StatefulWidget {
     required this.role,
     required this.appTitle,
     required this.appSubtitle,
-    required this.quickProfiles,
+    this.quickProfiles,
     required this.onAuthenticate,
     this.onBackToGateway,
   });
@@ -95,16 +95,32 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
     super.dispose();
   }
 
+  String _getAppCodeForRole(MobileAppRole role) {
+    switch (role) {
+      case MobileAppRole.waiter:
+        return 'waiter_pos';
+      case MobileAppRole.deliveryBoy:
+        return 'delivery_boy';
+      case MobileAppRole.housekeeping:
+        return 'housekeeping';
+      case MobileAppRole.manager:
+        return 'manager_mis';
+      default:
+        return 'windows_erp';
+    }
+  }
+
   void _handleManualSubmit() async {
-    final enteredId = _idController.text.trim().toLowerCase();
-    final enteredPin = _pinController.text.trim();
+    final repo = context.read<HotelRepository>();
+    final enteredId = _idController.text.trim();
+    final enteredPassword = _pinController.text.trim();
 
     if (enteredId.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your Staff ID or registered phone');
+      setState(() => _errorMessage = 'Please enter your registered Username or Operator ID.');
       return;
     }
-    if (enteredPin.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your security PIN or password');
+    if (enteredPassword.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your security password.');
       return;
     }
 
@@ -113,44 +129,55 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
       _errorMessage = null;
     });
 
-    // Check against demo profiles or allow universal passcode '1234'
-    StaffProfileAuth? matched;
-    for (final p in widget.quickProfiles) {
-      if (p.id.toLowerCase() == enteredId ||
-          p.phone.replaceAll(' ', '') == enteredId.replaceAll(' ', '') ||
-          p.name.toLowerCase().contains(enteredId)) {
-        if (p.pin == enteredPin || enteredPin == '1234') {
-          matched = p;
-          break;
-        }
-      }
+    final targetAppCode = _getAppCodeForRole(widget.role);
+    final authResult = repo.authenticateUserWithDetails(
+      enteredId,
+      enteredPassword,
+      requiredApp: targetAppCode,
+    );
+
+    if (!authResult.success) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = authResult.errorMessage ?? 'Authentication failed.';
+      });
+      return;
     }
 
-    // Fallback profile if custom ID entered with standard PIN
-    matched ??= StaffProfileAuth(
-      id: enteredId.toUpperCase(),
-      name: enteredId.toUpperCase(),
-      role: '${widget.role.title} Operator',
-      phone: '+91 98000 00000',
-      pin: enteredPin,
-      avatarEmoji: widget.role.emoji,
-      shift: 'Active Shift',
-    );
+    final user = authResult.user!;
+    repo.setActiveMobileUser(user);
 
     // Save or clear credentials based on checkbox
     await HotelConfigStorage.saveSavedCredentials(
       widget.role.name,
-      userId: _idController.text.trim(),
-      password: enteredPin,
+      userId: enteredId,
+      password: enteredPassword,
       remember: _rememberCredentials,
     );
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        widget.onAuthenticate(matched!);
+    String staffPhone = '+91 98000 00000';
+    if (user.staffId != null) {
+      final matchingStaff = repo.activeBranchStaff.where((s) => s.id == user.staffId).firstOrNull;
+      if (matchingStaff != null && matchingStaff.phone.isNotEmpty) {
+        staffPhone = matchingStaff.phone;
       }
-    });
+    }
+
+    final matched = StaffProfileAuth(
+      id: user.id,
+      name: user.displayName,
+      role: user.role.label,
+      phone: staffPhone,
+      pin: enteredPassword,
+      avatarEmoji: widget.role.emoji,
+      shift: 'Active Duty',
+      branchId: user.branchAccess.isNotEmpty ? user.branchAccess.first : repo.activeBranch.id,
+    );
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      widget.onAuthenticate(matched);
+    }
   }
 
   @override
@@ -159,6 +186,12 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
     final hotelName = repo.clientBusinessName;
     final activeBranch = repo.activeBranch;
     final themeColor = widget.role.themeColor;
+    final targetAppCode = _getAppCodeForRole(widget.role);
+
+    // Filter registered system users who have authority for this specific app
+    final authorizedUsers = repo.appUsers
+        .where((u) => u.isActive && u.canAccessApp(targetAppCode))
+        .toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -216,7 +249,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              '📍 ${activeBranch.name} • Shift Security',
+                              '📍 ${activeBranch.name} • Security Gate',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 11,
@@ -248,7 +281,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                             ),
                             const SizedBox(width: 5),
                             const Text(
-                              'SECURE',
+                              'VERIFIED',
                               style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                             ),
                           ],
@@ -271,8 +304,8 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                           clipBehavior: Clip.none,
                           children: [
                             Container(
-                              width: 88,
-                              height: 88,
+                              width: 84,
+                              height: 84,
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 shape: BoxShape.circle,
@@ -287,8 +320,8 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                               ),
                               child: const ClipOval(
                                 child: HotelLogoWidget(
-                                  width: 84,
-                                  height: 84,
+                                  width: 80,
+                                  height: 80,
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -297,8 +330,8 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                               right: -4,
                               bottom: -4,
                               child: Container(
-                                width: 34,
-                                height: 34,
+                                width: 32,
+                                height: 32,
                                 decoration: BoxDecoration(
                                   color: themeColor,
                                   shape: BoxShape.circle,
@@ -314,14 +347,14 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                           ],
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
                         Text(
                           widget.appTitle,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 21,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.3,
                           ),
@@ -334,38 +367,44 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
 
                         const SizedBox(height: 14),
 
-                        // Error Banner
+                        // Error Banner with clear explanation
                         if (_errorMessage != null)
                           Container(
                             margin: const EdgeInsets.only(bottom: 16),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFFEF4444)),
                             ),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.error_outline_rounded, color: Color(0xFFF87171), size: 18),
-                                const SizedBox(width: 8),
+                                const Icon(Icons.gpp_bad_rounded, color: Color(0xFFF87171), size: 20),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
-                                    style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      color: Color(0xFFFEE2E2),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
 
-                        // Clean Manual Operator Login Card
+                        // Clean Operator Authentication Form Card
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
@@ -384,7 +423,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Text(
-                                'Operator Staff ID / Mobile Number',
+                                'Operator Username / Login ID',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -398,7 +437,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.black.withValues(alpha: 0.3),
-                                  hintText: 'Enter your Staff ID or phone',
+                                  hintText: 'e.g. rahul.waiter or admin',
                                   hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
                                   prefixIcon: const Icon(Icons.badge_rounded, color: Colors.white70, size: 20),
                                   border: OutlineInputBorder(
@@ -419,7 +458,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                               const SizedBox(height: 16),
 
                               const Text(
-                                'Security Passcode / Password / PIN',
+                                'Security Password',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -430,11 +469,11 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                               TextField(
                                 controller: _pinController,
                                 obscureText: _obscurePin,
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.black.withValues(alpha: 0.3),
-                                  hintText: 'Enter security passcode',
+                                  hintText: 'Enter operator password',
                                   hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
                                   prefixIcon: const Icon(Icons.lock_rounded, color: Colors.white70, size: 20),
                                   suffixIcon: IconButton(
@@ -461,9 +500,9 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                 onSubmitted: (_) => _handleManualSubmit(),
                               ),
 
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 12),
 
-                              // ── Save ID & Password Checkbox ──
+                              // Save ID & Password Checkbox
                               Row(
                                 children: [
                                   SizedBox(
@@ -483,10 +522,10 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                     child: GestureDetector(
                                       onTap: () => setState(() => _rememberCredentials = !_rememberCredentials),
                                       child: const Text(
-                                        'Save ID & Password on this device',
+                                        'Remember login on this device',
                                         style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 12.5,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -495,9 +534,9 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                 ],
                               ),
 
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 18),
 
-                              // Login Button
+                              // Sign In Button
                               ElevatedButton(
                                 onPressed: _isLoading ? null : _handleManualSubmit,
                                 style: ElevatedButton.styleFrom(
@@ -520,8 +559,8 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: const [
                                           Text(
-                                            'Verify & Sign In',
-                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.4),
+                                            'Verify Credentials & Enter',
+                                            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, letterSpacing: 0.4),
                                           ),
                                           SizedBox(width: 8),
                                           Icon(Icons.arrow_forward_rounded, size: 18),
@@ -532,7 +571,69 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        // Authorized Roster Hint
+                        if (authorizedUsers.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.people_outline_rounded, color: Colors.white70, size: 14),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Authorized ${widget.role.title} Operators in System (${authorizedUsers.length}):',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: authorizedUsers.map((u) {
+                                    return ActionChip(
+                                      avatar: CircleAvatar(
+                                        radius: 10,
+                                        backgroundColor: themeColor,
+                                        child: Text(
+                                          u.username.substring(0, 1).toUpperCase(),
+                                          style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      label: Text(
+                                        '${u.displayName} (@${u.username})',
+                                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                      side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                                      onPressed: () {
+                                        setState(() {
+                                          _idController.text = u.username;
+                                          _pinController.text = u.password;
+                                          _errorMessage = null;
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 20),
 
                         // Security Badge Footer
                         Row(

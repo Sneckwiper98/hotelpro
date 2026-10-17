@@ -32,6 +32,8 @@ class ClassicErpTheme {
   static const Color accentRed = Color(0xFFC0392B);          // Urgent / Occupied
   static const Color accentAmber = Color(0xFFD35400);        // Attention / Dirty
   static const Color excelGreen = Color(0xFF1E7145);         // Excel export button
+  static const Color titleGold = Color(0xFFF1C40F);          // Golden title bar icon accent
+  static const Color navyHeader = Color(0xFF1B4F72);         // Win32 dialog header navy
   static const Color textMain = Color(0xFF1C2833);           // Dark Charcoal Text
   static const Color textMuted = Color(0xFF566573);          // Secondary Text
   static const Color statusBarBg = Color(0xFFD5D8DC);        // Classic Bottom Status

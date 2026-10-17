@@ -224,6 +224,49 @@ class MobileRoleGateway extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                if (repo.activeMobileUser != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F8F5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFA3E4D7)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user_rounded, color: Color(0xFF117864), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Logged In: ${repo.activeMobileUser!.displayName} (@${repo.activeMobileUser!.username})',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF117864)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Role: ${repo.activeMobileUser!.role.label}',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF16A085)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => repo.logoutMobileUser(),
+                          child: const Text('Logout', style: TextStyle(color: Color(0xFFC0392B), fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // 1. Customer Food & Dining App
                 _buildAppCard(
                   title: 'Customer Food & Dining',
@@ -235,7 +278,7 @@ class MobileRoleGateway extends StatelessWidget {
                   primaryColor: const Color(0xFFE23744),
                   gradient: const [Color(0xFFE23744), Color(0xFFC0392B)],
                   icon: Icons.restaurant_menu_rounded,
-                  onTap: () => onSelectRole(MobileAppRole.customer),
+                  onTap: () => _handleRoleTap(context, repo, MobileAppRole.customer),
                 ),
 
                 // 2. Waiter POS & Captain App
@@ -249,7 +292,7 @@ class MobileRoleGateway extends StatelessWidget {
                   primaryColor: const Color(0xFF1E8449),
                   gradient: const [Color(0xFF1E8449), Color(0xFF145A32)],
                   icon: Icons.table_restaurant_rounded,
-                  onTap: () => onSelectRole(MobileAppRole.waiter),
+                  onTap: () => _handleRoleTap(context, repo, MobileAppRole.waiter),
                 ),
 
                 // 3. Housekeeping & Room Inspection App
@@ -263,7 +306,7 @@ class MobileRoleGateway extends StatelessWidget {
                   primaryColor: const Color(0xFF6C3483),
                   gradient: const [Color(0xFF6C3483), Color(0xFF4A235A)],
                   icon: Icons.cleaning_services_rounded,
-                  onTap: () => onSelectRole(MobileAppRole.housekeeping),
+                  onTap: () => _handleRoleTap(context, repo, MobileAppRole.housekeeping),
                 ),
 
                 // 4. Manager & Owner Live MIS App
@@ -277,7 +320,7 @@ class MobileRoleGateway extends StatelessWidget {
                   primaryColor: const Color(0xFF922B21),
                   gradient: const [Color(0xFF922B21), Color(0xFF641E16)],
                   icon: Icons.insights_rounded,
-                  onTap: () => onSelectRole(MobileAppRole.manager),
+                  onTap: () => _handleRoleTap(context, repo, MobileAppRole.manager),
                 ),
 
                 // 5. Delivery Boy & Rider Partner App
@@ -291,7 +334,7 @@ class MobileRoleGateway extends StatelessWidget {
                   primaryColor: const Color(0xFFD35400),
                   gradient: const [Color(0xFFD35400), Color(0xFFA04000)],
                   icon: Icons.two_wheeler_rounded,
-                  onTap: () => onSelectRole(MobileAppRole.deliveryBoy),
+                  onTap: () => _handleRoleTap(context, repo, MobileAppRole.deliveryBoy),
                 ),
 
                 const SizedBox(height: 18),
@@ -326,6 +369,106 @@ class MobileRoleGateway extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _handleRoleTap(BuildContext context, HotelRepository repo, MobileAppRole role) {
+    if (role == MobileAppRole.customer) {
+      onSelectRole(role);
+      return;
+    }
+
+    final appCode = _getAppCodeForRole(role);
+    final activeUser = repo.activeMobileUser;
+
+    if (activeUser != null && appCode != null) {
+      if (!activeUser.canAccessApp(appCode)) {
+        final appName = _getAppTitleForRole(role);
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(Icons.gpp_bad_rounded, color: Colors.red.shade700, size: 24),
+                const SizedBox(width: 8),
+                const Text('Access Denied', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Operator "${activeUser.displayName}" (@${activeUser.username}) is not authorized to access $appName.',
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(
+                    'Assigned Role: ${activeUser.role.label}\nTo access this app, please log in with an authorized user account.',
+                    style: TextStyle(fontSize: 11, color: Colors.red.shade900),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1B4F72),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  repo.logoutMobileUser();
+                  onSelectRole(role);
+                },
+                icon: const Icon(Icons.switch_account_rounded, size: 16),
+                label: const Text('Login With Other Account', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    onSelectRole(role);
+  }
+
+  String? _getAppCodeForRole(MobileAppRole role) {
+    switch (role) {
+      case MobileAppRole.waiter: return 'waiter_pos';
+      case MobileAppRole.housekeeping: return 'housekeeping';
+      case MobileAppRole.manager: return 'manager_mis';
+      case MobileAppRole.deliveryBoy: return 'delivery_boy';
+      case MobileAppRole.customer:
+      case MobileAppRole.gateway:
+        return null;
+    }
+  }
+
+  String _getAppTitleForRole(MobileAppRole role) {
+    switch (role) {
+      case MobileAppRole.waiter: return 'Staff Waiter & Captain POS App';
+      case MobileAppRole.housekeeping: return 'Housekeeping & Inspection App';
+      case MobileAppRole.manager: return 'Manager & Owner Live MIS App';
+      case MobileAppRole.deliveryBoy: return 'Delivery Boy Partner App';
+      case MobileAppRole.customer:
+      case MobileAppRole.gateway:
+        return 'Customer Food & Dining App';
+    }
   }
 
   Widget _miniStatItem({

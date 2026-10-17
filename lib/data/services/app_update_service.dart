@@ -45,7 +45,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String currentInstalledVersion = '1.0.0';
+  static const String currentInstalledVersion = '1.0.8';
 
   static String? _dismissedVersion;
   static bool _isChecking = false;

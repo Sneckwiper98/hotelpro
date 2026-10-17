@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../config/classic_erp_theme.dart';
+import '../../../data/models/user_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../features/dashboard/executive_analytics_view.dart';
 import '../../features/front_desk/front_desk_view.dart';
@@ -156,7 +157,128 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     _bringToFront(_openWindows[prevIndex]);
   }
 
+  String _getRequiredPermissionForModule(int index) {
+    switch (index) {
+      case 0: return HotelProFunctionRights.frontDeskView;
+      case 1: return HotelProFunctionRights.folioView;
+      case 2: return HotelProFunctionRights.posView;
+      case 3: return HotelProFunctionRights.hkView;
+      case 4: return HotelProFunctionRights.crsView;
+      case 5: return HotelProFunctionRights.analyticsView;
+      case 6: return HotelProFunctionRights.masterRooms;
+      case 7: return HotelProFunctionRights.accountingView;
+      case 8: return HotelProFunctionRights.inventoryView;
+      case 9: return HotelProFunctionRights.deliveryQueue;
+      case 10: return HotelProFunctionRights.deliveryDispatch;
+      default: return HotelProFunctionRights.frontDeskView;
+    }
+  }
+
+  void _showAccessDeniedDialog(String moduleName, AppUserModel user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: Container(
+          width: 460,
+          decoration: BoxDecoration(
+            color: ClassicErpTheme.panelBg,
+            border: Border.all(color: Colors.red.shade700, width: 2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                color: Colors.red.shade800,
+                child: const Row(
+                  children: [
+                    Icon(Icons.gpp_bad_rounded, color: Colors.white, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Access Denied — Function Rights Insufficient',
+                      style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lock_person_rounded, size: 36, color: Colors.red.shade700),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Unauthorized Module Access',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.red.shade900),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Operator "@${user.username}" (${user.displayName}) does not possess the required function rights to open:',
+                                style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                color: Colors.white,
+                                child: Text(
+                                  moduleName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1B4F72)),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Assigned System Role: ${user.role.label}\nPlease ask your Super Administrator to grant function rights in Masters > User Accounts > Function Rights Master.',
+                                style: const TextStyle(fontSize: 10, color: ClassicErpTheme.textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B4F72),
+                          foregroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('OK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openModule(int index, {int initialTab = 0, dynamic initialData}) {
+    final repo = context.read<HotelRepository>();
+    final user = repo.currentErpUser;
+    final requiredPerm = _getRequiredPermissionForModule(index);
+
+    if (!user.hasPermission(requiredPerm)) {
+      _showAccessDeniedDialog(_getModuleName(index), user);
+      return;
+    }
+
     setState(() {
       final existingIndex = _openWindows.indexWhere((w) => w.moduleIndex == index);
       if (existingIndex != -1) {
