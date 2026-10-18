@@ -128,18 +128,18 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       children: [
                         Text(
                           _isUpdating
-                              ? 'Updating In Progress...'
-                              : 'New Version Available.. Update Now',
+                              ? 'Updating in Progress...'
+                              : 'Update Available',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15.5,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          widget.updateInfo.targetApp.displayName,
+                          '${widget.updateInfo.targetApp.displayName} • v${widget.updateInfo.latestVersion}',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 12.5,
@@ -340,7 +340,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 ),
               ),
 
-              // ── 2 Action Buttons: "Update Later" & "Yes" ───────────
+              // ── 2 Action Buttons: "Later" & "Update Now" ─────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                 child: Row(
@@ -358,7 +358,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                           ),
                         ),
                         child: Text(
-                          'Update Later',
+                          'Later',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -371,13 +371,15 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _handleUpdate,
-                        icon: const Icon(
-                          Icons.check_circle_rounded,
+                        icon: Icon(
+                          !kIsWeb && Platform.isWindows
+                              ? Icons.sync_rounded
+                              : Icons.download_rounded,
                           color: Colors.white,
                           size: 18,
                         ),
                         label: const Text(
-                          'Yes',
+                          'Update Now',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,

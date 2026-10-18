@@ -128,7 +128,16 @@ class AppUpdateService {
         final tagName = json['tag_name']?.toString() ?? '1.0.0';
         final cleanTag = tagName.replaceAll('v', '').trim();
         final releaseTitle = json['name']?.toString() ?? 'HotelPro Release $tagName';
-        final releaseNotes = json['body']?.toString() ?? 'A new version with performance improvements and bug fixes is ready.';
+        final rawBody = json['body']?.toString() ?? '';
+        final String releaseNotes;
+        if (rawBody.contains('github.com') ||
+            rawBody.contains('compare/') ||
+            rawBody.contains('Full Changelog') ||
+            rawBody.trim().isEmpty) {
+          releaseNotes = 'A new version with performance improvements and bug fixes is ready.';
+        } else {
+          releaseNotes = rawBody.trim();
+        }
         final releasePageUrl = json['html_url']?.toString() ?? 'https://github.com/$repoOwner/$repoName/releases/latest';
         final publishedAtStr = json['published_at']?.toString();
         final publishedAt = publishedAtStr != null ? DateTime.tryParse(publishedAtStr) : null;
