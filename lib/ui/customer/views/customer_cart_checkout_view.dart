@@ -5,6 +5,7 @@ import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/geofence_service.dart';
 import 'customer_payment_view.dart';
 import 'customer_order_tracking_view.dart';
+import 'customer_auth_view.dart';
 
 class CustomerCartCheckoutView extends StatefulWidget {
   final VoidCallback onBackToMenu;
@@ -70,6 +71,59 @@ class _CustomerCartCheckoutViewState extends State<CustomerCartCheckoutView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Mandatory Registration Banner for Guest
+                  if (!repo.isCustomerLoggedIn) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFFD54F), width: 1.2),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFF3CD),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFFE65100), size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Guest Order • Registration Mandatory',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFFE65100)),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Profile creation is mandatory to place this order.',
+                                  style: TextStyle(fontSize: 11, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _promptMandatoryProfile(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE23744),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 1,
+                            ),
+                            child: const Text('Register', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
                   // 10km Geofencing Banner (Critical Requirement!)
                   _buildGeofenceAlertBanner(context, repo, distanceKm, isEligible),
                   const SizedBox(height: 14),
@@ -549,6 +603,10 @@ class _CustomerCartCheckoutViewState extends State<CustomerCartCheckoutView> {
                       );
                     }
                   : () {
+                      if (!repo.isCustomerLoggedIn) {
+                        _promptMandatoryProfile(context);
+                        return;
+                      }
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (ctx) => CustomerPaymentView(
@@ -764,6 +822,103 @@ class _CustomerCartCheckoutViewState extends State<CustomerCartCheckoutView> {
             child: const Text('Save & Select'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _promptMandatoryProfile(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bCtx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE23744).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.person_pin_rounded, color: Color(0xFFE23744), size: 32),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Profile Registration Required',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Guest users can browse menus, but placing an order requires user registration. Please create your profile or sign in to complete your order.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 22),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(bCtx).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => CustomerAuthView(
+                      initialTab: AuthTab.register,
+                      onLoginSuccess: () {
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.app_registration_rounded, size: 18),
+              label: const Text('Create Profile / Register Now', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE23744),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(bCtx).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => CustomerAuthView(
+                      initialTab: AuthTab.signIn,
+                      onLoginSuccess: () {
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.login_rounded, size: 18, color: Color(0xFF1B4F72)),
+              label: const Text('Already Have an Account? Sign In', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 46),
+                side: const BorderSide(color: Color(0xFF1B4F72)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

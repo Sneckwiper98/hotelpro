@@ -2968,6 +2968,7 @@ class HotelRepository extends ChangeNotifier {
     required String transactionId,
   }) {
     if (_customerCart.isEmpty || _selectedDeliveryAddress == null) return null;
+    if (_currentCustomer == null) return null; // Mandatory profile: guest must register before ordering
 
     final distance = _selectedDeliveryAddress!.distanceKmFromHotel;
     final etaMinutes = GeofenceService.calculateEstimatedMinutes(distance);
@@ -2976,9 +2977,9 @@ class HotelRepository extends ChangeNotifier {
       id: 'ORD-HP-${1000 + _customerOrders.length + 1}',
       branchId: _activeBranch.id,
       branchName: _activeBranch.name,
-      customerId: _currentCustomer?.id ?? 'guest-cust',
-      customerName: _currentCustomer?.name ?? 'Guest Customer',
-      customerPhone: _currentCustomer?.phone ?? '+91 99999 88888',
+      customerId: _currentCustomer!.id,
+      customerName: _currentCustomer!.name,
+      customerPhone: _currentCustomer!.phone,
       deliveryAddress: _selectedDeliveryAddress!,
       items: List.from(_customerCart),
       itemTotal: customerCartSubtotal,

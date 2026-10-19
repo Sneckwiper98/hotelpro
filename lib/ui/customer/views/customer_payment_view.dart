@@ -400,10 +400,22 @@ class _CustomerPaymentViewState extends State<CustomerPaymentView> {
   }
 
   void _handlePayButton(HotelRepository repo, double grandTotal) async {
+    if (!repo.isCustomerLoggedIn || repo.currentCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Profile Registration Required: Please register or sign in before placing an order.'),
+          backgroundColor: Color(0xFFE23744),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
     final customer = repo.currentCustomer;
-    final customerName = customer?.name ?? 'Guest User';
-    final customerPhone = customer?.phone ?? '+91 99999 88888';
-    final customerEmail = customer?.email ?? 'guest@hotelpro.com';
+    final customerName = customer?.name ?? 'Customer';
+    final customerPhone = customer?.phone ?? '';
+    final customerEmail = customer?.email ?? '';
     final orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
     if (_selectedMethod == OnlinePaymentMethod.razorpay) {

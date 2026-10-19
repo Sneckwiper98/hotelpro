@@ -7,10 +7,12 @@ import '../../../data/services/hotel_config_storage.dart';
 
 class CustomerAuthView extends StatefulWidget {
   final VoidCallback onLoginSuccess;
+  final AuthTab initialTab;
 
   const CustomerAuthView({
     super.key,
     required this.onLoginSuccess,
+    this.initialTab = AuthTab.signIn,
   });
 
   @override
@@ -21,7 +23,7 @@ enum AuthTab { signIn, register }
 enum LoginMethod { smsOtp, emailOtp, password }
 
 class _CustomerAuthViewState extends State<CustomerAuthView> {
-  AuthTab _activeTab = AuthTab.signIn;
+  late AuthTab _activeTab;
   LoginMethod _loginMethod = LoginMethod.smsOtp;
 
   bool _obscurePassword = true;
@@ -36,6 +38,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
   @override
   void initState() {
     super.initState();
+    _activeTab = widget.initialTab;
     _loadSavedCustomerCredentials();
   }
 

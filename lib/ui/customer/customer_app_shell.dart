@@ -26,7 +26,7 @@ class _CustomerAppShellState extends State<CustomerAppShell> {
   int _activeTabIndex = 0;
   bool _isCartOpen = false;
   bool _isDesktopMobileFrame = true; // Toggle for simulated Android phone bezel on desktop
-  bool _isGuestBrowsing = false;
+  bool _isGuestBrowsing = true; // Guest entry allowed by default
 
   @override
   void initState() {
