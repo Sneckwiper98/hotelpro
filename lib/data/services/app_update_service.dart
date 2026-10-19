@@ -45,7 +45,89 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String currentInstalledVersion = '1.0.11';
+  static const String baseInstalledVersion = '1.0.11';
+  static String? _cachedDynamicVersion;
+
+  /// Dynamically retrieves current installed version string (e.g. '1.0.11').
+  /// Reads from local version.json manifest if present (updated by auto-updater),
+  /// otherwise falls back to baseInstalledVersion.
+  static String get currentInstalledVersion {
+    if (_cachedDynamicVersion != null) return _cachedDynamicVersion!;
+
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        // 1. Check in application directory
+        final exePath = Platform.resolvedExecutable;
+        final appDir = File(exePath).parent;
+        final localVersionFile = File('${appDir.path}\\version.json');
+        if (localVersionFile.existsSync()) {
+          final content = localVersionFile.readAsStringSync();
+          final data = jsonDecode(content);
+          if (data is Map && data['version'] != null) {
+            final v = data['version'].toString().replaceAll('v', '').trim();
+            if (v.isNotEmpty) {
+              _cachedDynamicVersion = v;
+              return v;
+            }
+          }
+        }
+
+        // 2. Check in %APPDATA%\HotelPro\version.json
+        final appData = Platform.environment['APPDATA'];
+        if (appData != null && appData.isNotEmpty) {
+          final appDataVersionFile = File('$appData\\HotelPro\\version.json');
+          if (appDataVersionFile.existsSync()) {
+            final content = appDataVersionFile.readAsStringSync();
+            final data = jsonDecode(content);
+            if (data is Map && data['version'] != null) {
+              final v = data['version'].toString().replaceAll('v', '').trim();
+              if (v.isNotEmpty) {
+                _cachedDynamicVersion = v;
+                return v;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[AppUpdateService] Error reading dynamic version: $e');
+      }
+    }
+
+    _cachedDynamicVersion = baseInstalledVersion;
+    return baseInstalledVersion;
+  }
+
+  /// Sets or updates the persisted version manifest
+  static void saveInstalledVersion(String newVersion) {
+    final clean = newVersion.replaceAll('v', '').trim();
+    _cachedDynamicVersion = clean;
+
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        final payload = jsonEncode({
+          'version': clean,
+          'updatedAt': DateTime.now().toIso8601String(),
+          'product': 'HotelPro Enterprise Windows ERP',
+        });
+
+        // Save in app folder
+        final exePath = Platform.resolvedExecutable;
+        final appDir = File(exePath).parent;
+        final localFile = File('${appDir.path}\\version.json');
+        localFile.writeAsStringSync(payload);
+
+        // Save in AppData
+        final appData = Platform.environment['APPDATA'];
+        if (appData != null && appData.isNotEmpty) {
+          final dir = Directory('$appData\\HotelPro');
+          if (!dir.existsSync()) dir.createSync(recursive: true);
+          File('$appData\\HotelPro\\version.json').writeAsStringSync(payload);
+        }
+      } catch (e) {
+        debugPrint('[AppUpdateService] Could not persist new version: $e');
+      }
+    }
+  }
 
   static String? _dismissedVersion;
   static bool _isChecking = false;
@@ -359,6 +441,17 @@ class AppUpdateService {
     final currentAppDir = File(currentExePath).parent.path;
 
     onProgress(0.95, 'Preparing in-place replacement and restart...');
+
+    // Save updated version manifest into effectiveSource (so robocopy carries it), currentAppDir and AppData
+    saveInstalledVersion(info.latestVersion);
+    try {
+      final payload = jsonEncode({
+        'version': info.latestVersion.replaceAll('v', '').trim(),
+        'updatedAt': DateTime.now().toIso8601String(),
+        'product': 'HotelPro Enterprise Windows ERP',
+      });
+      File('$effectiveSource\\version.json').writeAsStringSync(payload);
+    } catch (_) {}
 
     // 5. Generate detached batch updater script
     final updaterBat = File('${tempDir.path}\\hotelpro_inplace_updater.bat');

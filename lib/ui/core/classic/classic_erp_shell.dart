@@ -93,7 +93,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   BoxConstraints? _desktopConstraints;
   String _activeOperation = 'mdi_Desktop_ready';
   String _executionLatency = '0.002 Secs';
-  final String _systemVersion = 'v${AppUpdateService.currentInstalledVersion}';
+  String _systemVersion = AppUpdateService.currentInstalledVersion;
   int _zCounter = 0;
   ErpWindow? _activeWindow;
   AppUpdateInfo? _availableUpdate;
@@ -101,18 +101,30 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   @override
   void initState() {
     super.initState();
+    _systemVersion = AppUpdateService.currentInstalledVersion;
     HardwareKeyboard.instance.addHandler(_handleGlobalKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkWindowsUpdateOnStartup();
     });
   }
 
+  void _refreshSystemVersion() {
+    final v = AppUpdateService.currentInstalledVersion;
+    if (_systemVersion != v) {
+      setState(() {
+        _systemVersion = v;
+      });
+    }
+  }
+
   Future<void> _checkWindowsUpdateOnStartup() async {
     try {
+      _refreshSystemVersion();
       final info = await AppUpdateService.checkLatestRelease(targetApp: AppTarget.windowsErp);
       if (mounted) {
         setState(() {
           _availableUpdate = info;
+          _systemVersion = AppUpdateService.currentInstalledVersion;
         });
         if (info != null && info.hasUpdate) {
           AppUpdateService.checkAndPrompt(context, targetApp: AppTarget.windowsErp, silent: false);
@@ -1301,13 +1313,20 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         _statusPanel(repo.currentErpUser.username, width: 85),
                         _statusPanel('PROB', width: 50),
                         _statusPanel('ML (Multi-Location)', width: 110),
-                        _statusPanel(_systemVersion, width: 80),
+                        _statusPanel(
+                          _systemVersion,
+                          width: 85,
+                          textColor: const Color(0xFF1B4F72),
+                          tooltip: 'HotelPro ERP Version: $_systemVersion (Click to open Deployment & Software Update)',
+                          onTap: () => _showDeploymentDialog(context),
+                        ),
                         if (_availableUpdate?.hasUpdate == true)
                           _statusPanel(
                             '🚀 Update v${_availableUpdate!.latestVersion} Ready!',
                             width: 165,
                             textColor: Colors.white,
                             bgColor: const Color(0xFFC0392B),
+                            tooltip: 'Click to install new update v${_availableUpdate!.latestVersion}',
                             onTap: () => _openUpdateFlow(),
                           ),
                         _statusPanel('Cloud Server: Connected (Secure)', width: 175, textColor: Colors.green.shade800),
@@ -1995,7 +2014,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     );
   }
 
-  Widget _statusPanel(String text, {int? flex, double? width, Color? textColor, Color? bgColor, VoidCallback? onTap}) {
+  Widget _statusPanel(String text, {int? flex, double? width, Color? textColor, Color? bgColor, VoidCallback? onTap, String? tooltip}) {
     Widget panelContent = Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -2024,6 +2043,13 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     if (onTap != null) {
       panelContent = InkWell(
         onTap: onTap,
+        child: panelContent,
+      );
+    }
+
+    if (tooltip != null) {
+      panelContent = Tooltip(
+        message: tooltip,
         child: panelContent,
       );
     }
@@ -2138,7 +2164,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
               const SizedBox(height: 6),
               Text('Active Stored Procedure: $_activeOperation', style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMuted)),
               const SizedBox(height: 6),
-              Text('Installed Version: Enterprise ERP v$_systemVersion', style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMuted)),
+              Text('Installed Version: Enterprise ERP v${_systemVersion.replaceAll('v', '')}', style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMuted)),
               const SizedBox(height: 6),
               const Text('Cloud Sync Engine: Connected & Active (Zero Packet Loss)', style: TextStyle(fontSize: 11, color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
@@ -3196,6 +3222,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         if (mounted) {
                           setState(() {
                             _availableUpdate = latest;
+                            _systemVersion = AppUpdateService.currentInstalledVersion;
                           });
                         }
                         setDialogState(() {
@@ -3283,7 +3310,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                 padding: const EdgeInsets.all(8),
                 color: const Color(0xFFF0F3F4),
                 child: Text(
-                  'Version $_systemVersion  •  All rights reserved © iSecure Systems Pvt. Ltd.',
+                  'Version v${_systemVersion.replaceAll('v', '')}  •  All rights reserved © iSecure Systems Pvt. Ltd.',
                   style: const TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted),
                   textAlign: TextAlign.center,
                 ),
