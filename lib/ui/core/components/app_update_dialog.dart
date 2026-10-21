@@ -25,6 +25,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
 
   Future<void> _handleUpdate() async {
     final isWindows = !kIsWeb && Platform.isWindows;
+    final isAndroid = !kIsWeb && Platform.isAndroid;
 
     if (isWindows) {
       setState(() {
@@ -54,8 +55,36 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
           });
         }
       }
+    } else if (isAndroid) {
+      setState(() {
+        _isUpdating = true;
+        _errorMessage = null;
+        _progress = 0.05;
+        _statusMessage = 'Connecting to update server...';
+      });
+
+      try {
+        await AppUpdateService.performAndroidInAppUpdate(
+          widget.updateInfo,
+          onProgress: (pct, msg) {
+            if (mounted) {
+              setState(() {
+                _progress = pct;
+                _statusMessage = msg;
+              });
+            }
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isUpdating = false;
+            _errorMessage = 'Update error: $e';
+          });
+        }
+      }
     } else {
-      // Android / Mobile: Direct APK download & prompt
+      // Fallback for Web/other platforms: browser download
       widget.onDismiss();
       AppUpdateService.downloadUpdate(widget.updateInfo.downloadUrl);
     }
@@ -207,14 +236,16 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFF1E8449).withValues(alpha: 0.25)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.info_outline_rounded, color: Color(0xFF1E8449), size: 16),
-                          SizedBox(width: 8),
+                          const Icon(Icons.info_outline_rounded, color: Color(0xFF1E8449), size: 16),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Software will restart automatically when complete.',
-                              style: TextStyle(fontSize: 11.5, color: Color(0xFF1E8449)),
+                              !kIsWeb && Platform.isWindows
+                                  ? 'Software will restart automatically when complete.'
+                                  : 'Package installer will open automatically once downloaded.',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF1E8449)),
                             ),
                           ),
                         ],
@@ -335,6 +366,24 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (!kIsWeb && Platform.isAndroid) ...[
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () {
+                            widget.onDismiss();
+                            AppUpdateService.downloadUpdate(widget.updateInfo.downloadUrl);
+                          },
+                          child: const Text(
+                            'Click here to download via browser instead',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF1E8449),
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -372,7 +421,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       child: ElevatedButton.icon(
                         onPressed: _handleUpdate,
                         icon: Icon(
-                          !kIsWeb && Platform.isWindows
+                          !kIsWeb && (Platform.isWindows || Platform.isAndroid)
                               ? Icons.sync_rounded
                               : Icons.download_rounded,
                           color: Colors.white,

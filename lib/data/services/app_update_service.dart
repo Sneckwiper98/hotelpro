@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../ui/core/components/app_update_dialog.dart';
 
@@ -45,7 +46,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String baseInstalledVersion = '1.0.12';
+  static const String baseInstalledVersion = '1.0.13';
   static String? _cachedDynamicVersion;
 
   /// Dynamically retrieves current installed version string (e.g. '1.0.11').
@@ -361,6 +362,8 @@ class AppUpdateService {
     await sink.close();
   }
 
+  static const MethodChannel _installerChannel = MethodChannel('com.isecuresystem.hotelpro/installer');
+
   /// Completely automated In-App Updater for Windows Desktop ERP:
   /// 1. Downloads the new release zip inside the app with progress
   /// 2. Extracts to %TEMP%
@@ -453,6 +456,11 @@ class AppUpdateService {
       File('$effectiveSource\\version.json').writeAsStringSync(payload);
     } catch (_) {}
 
+    // Clean paths to avoid the Windows cmd `\"` trailing backslash escaping bug
+    final cleanSource = effectiveSource.replaceAll(RegExp(r'[/\\]+$'), '');
+    final cleanTarget = currentAppDir.replaceAll(RegExp(r'[/\\]+$'), '');
+    final cleanExe = currentExePath.replaceAll(RegExp(r'[/\\]+$'), '');
+
     // 5. Generate detached batch updater script
     final updaterBat = File('${tempDir.path}\\hotelpro_inplace_updater.bat');
     final scriptContent = '''@echo off
@@ -462,13 +470,15 @@ echo ========================================================
 echo   Updating HotelPro ERP to v${info.latestVersion}...
 echo   Please wait 2-3 seconds while files are updated.
 echo ========================================================
-timeout /t 2 /nobreak >nul
-robocopy "$effectiveSource" "$currentAppDir" /E /IS /IT /NP /NJH /NJS
-start "" "$currentExePath"
-timeout /t 2 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
+taskkill /F /IM hotelpro.exe >nul 2>&1
+robocopy "$cleanSource" "$cleanTarget" /E /IS /IT /R:2 /W:1 /NP /NJH /NJS
+cd /d "$cleanTarget"
+start "" "$cleanExe"
+ping 127.0.0.1 -n 3 >nul
 del "${zipFile.path}" 2>nul
 rmdir /s /q "${extractDir.path}" 2>nul
-del "%~f0" 2>nul
+(goto) 2>nul & del "%~f0"
 exit
 ''';
 
@@ -485,6 +495,51 @@ exit
     );
 
     exit(0);
+  }
+
+  /// In-App Updater for Android Mobile Apps:
+  /// 1. Downloads the APK directly inside the app with real-time percentage and MB progress
+  /// 2. Saves to app cache directory
+  /// 3. Invokes native Android package installer via MethodChannel
+  static Future<void> performAndroidInAppUpdate(
+    AppUpdateInfo info, {
+    required Function(double progress, String status) onProgress,
+  }) async {
+    if (!Platform.isAndroid) return;
+
+    final tempDir = Directory.systemTemp;
+    final apkFile = File('${tempDir.path}/hotelpro_update_${info.latestVersion}.apk');
+
+    onProgress(0.05, 'Connecting to update server...');
+
+    // 1. Download APK with stream progress
+    await downloadFileWithProgress(
+      url: info.downloadUrl,
+      saveFile: apkFile,
+      onProgress: (pct, received, total) {
+        final receivedMb = (received / (1024 * 1024)).toStringAsFixed(1);
+        final totalMb = total > 0 ? (total / (1024 * 1024)).toStringAsFixed(1) : '?';
+        final pctDisplay = (pct * 100).toInt();
+        onProgress(0.05 + (pct * 0.90), 'Downloading APK: $pctDisplay% ($receivedMb MB / $totalMb MB)');
+      },
+    );
+
+    onProgress(0.98, 'Verifying APK & launching package installer...');
+
+    // 2. Invoke native package installer via MethodChannel
+    try {
+      final success = await _installerChannel.invokeMethod<bool>('installApk', {
+        'filePath': apkFile.path,
+      });
+
+      if (success != true) {
+        throw Exception('Could not launch Android package installer.');
+      }
+
+      onProgress(1.0, 'Installer launched! Please confirm the update on your screen.');
+    } on PlatformException catch (pe) {
+      throw Exception('Installation error: ${pe.message ?? pe.code}');
+    }
   }
 
   /// Direct method to launch the update download link in external browser
