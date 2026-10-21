@@ -46,7 +46,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String baseInstalledVersion = '1.0.13';
+  static const String baseInstalledVersion = '1.0.14';
   static String? _cachedDynamicVersion;
 
   /// Dynamically retrieves current installed version string (e.g. '1.0.11').

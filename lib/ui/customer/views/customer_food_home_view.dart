@@ -1126,7 +1126,7 @@ class _CustomerFoodHomeViewState extends State<CustomerFoodHomeView> {
                       child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF1B4F72), size: 18),
                     ),
                     title: const Text('Switch Customer Account', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50))),
-                    subtitle: const Text('Select another demo profile or log in with mobile', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    subtitle: const Text('Log in with your registered mobile or WhatsApp OTP', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     onTap: () {
                       repo.logoutCustomer();
                       Navigator.of(ctx).pop();

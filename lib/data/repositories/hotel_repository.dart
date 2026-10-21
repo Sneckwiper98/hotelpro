@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../config/app_constants.dart';
@@ -2776,33 +2777,92 @@ class HotelRepository extends ChangeNotifier {
     ),
   ];
 
+  CustomerModel? findRegisteredCustomer(String phoneOrEmail) {
+    final cleanInput = phoneOrEmail.replaceAll(RegExp(r'[\s\-+]'), '');
+    return _registeredCustomers.where((c) {
+      final cleanPhone = c.phone.replaceAll(RegExp(r'[\s\-+]'), '');
+      final matchesPhone = cleanPhone == cleanInput ||
+          cleanPhone.endsWith(cleanInput) ||
+          cleanInput.endsWith(cleanPhone);
+      final matchesEmail = c.email.toLowerCase() == phoneOrEmail.trim().toLowerCase();
+      return matchesPhone || matchesEmail;
+    }).firstOrNull;
+  }
+
   bool loginCustomer(String phoneOrEmail, String password) {
     final cleanInput = phoneOrEmail.replaceAll(RegExp(r'[\s\-+]'), '');
-    final match = _registeredCustomers.firstWhere(
-      (c) {
-        final cleanPhone = c.phone.replaceAll(RegExp(r'[\s\-+]'), '');
-        final matchesPhone = cleanPhone == cleanInput || cleanPhone.endsWith(cleanInput) || cleanInput.endsWith(cleanPhone);
-        final matchesEmail = c.email.toLowerCase() == phoneOrEmail.trim().toLowerCase();
-        return (matchesPhone || matchesEmail) && c.password == password;
-      },
-      orElse: () => CustomerModel(
-        id: 'cust-${_uuid.v4().substring(0, 6)}',
-        name: phoneOrEmail.contains('@') ? phoneOrEmail.split('@').first : 'Customer',
-        phone: phoneOrEmail,
-        email: phoneOrEmail.contains('@') ? phoneOrEmail : '$cleanInput@customer.com',
-        password: password,
-        addresses: _selectedDeliveryAddress != null ? [_selectedDeliveryAddress!] : [],
-        walletBalance: 150.0,
-        joinedDate: DateTime.now(),
-      ),
-    );
+    final matches = _registeredCustomers.where((c) {
+      final cleanPhone = c.phone.replaceAll(RegExp(r'[\s\-+]'), '');
+      final matchesPhone = cleanPhone == cleanInput ||
+          cleanPhone.endsWith(cleanInput) ||
+          cleanInput.endsWith(cleanPhone);
+      final matchesEmail = c.email.toLowerCase() == phoneOrEmail.trim().toLowerCase();
+      return (matchesPhone || matchesEmail) && c.password == password;
+    }).toList();
 
-    _currentCustomer = match;
-    if (match.addresses.isNotEmpty) {
-      _selectedDeliveryAddress = match.primaryAddress;
+    if (matches.isNotEmpty) {
+      _currentCustomer = matches.first;
+      if (_currentCustomer!.addresses.isNotEmpty) {
+        _selectedDeliveryAddress = _currentCustomer!.primaryAddress;
+      }
+      notifyListeners();
+      return true;
     }
-    notifyListeners();
-    return true;
+    return false;
+  }
+
+  bool loginCustomerWithOtp(String phoneOrEmail, String otp) {
+    if (!verifyOtp(otp)) return false;
+    final cleanInput = phoneOrEmail.replaceAll(RegExp(r'[\s\-+]'), '');
+    final matches = _registeredCustomers.where((c) {
+      final cleanPhone = c.phone.replaceAll(RegExp(r'[\s\-+]'), '');
+      final matchesPhone = cleanPhone == cleanInput ||
+          cleanPhone.endsWith(cleanInput) ||
+          cleanInput.endsWith(cleanPhone);
+      final matchesEmail = c.email.toLowerCase() == phoneOrEmail.trim().toLowerCase();
+      return matchesPhone || matchesEmail;
+    }).toList();
+
+    if (matches.isNotEmpty) {
+      _currentCustomer = matches.first;
+      if (_currentCustomer!.addresses.isNotEmpty) {
+        _selectedDeliveryAddress = _currentCustomer!.primaryAddress;
+      }
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  bool resetCustomerPassword({
+    required String phoneOrEmail,
+    required String newPassword,
+    required String otp,
+  }) {
+    if (!verifyOtp(otp)) {
+      return false;
+    }
+    final cleanInput = phoneOrEmail.replaceAll(RegExp(r'[\s\-+]'), '');
+    final idx = _registeredCustomers.indexWhere((c) {
+      final cleanPhone = c.phone.replaceAll(RegExp(r'[\s\-+]'), '');
+      final matchesPhone = cleanPhone == cleanInput ||
+          cleanPhone.endsWith(cleanInput) ||
+          cleanInput.endsWith(cleanPhone);
+      final matchesEmail = c.email.toLowerCase() == phoneOrEmail.trim().toLowerCase();
+      return matchesPhone || matchesEmail;
+    });
+
+    if (idx != -1) {
+      final updated = _registeredCustomers[idx].copyWith(password: newPassword);
+      _registeredCustomers[idx] = updated;
+      if (_currentCustomer?.id == updated.id) {
+        _currentCustomer = updated;
+      }
+      _pushCustomerToSupabase(updated);
+      notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   void registerCustomer({
@@ -3476,8 +3536,19 @@ class HotelRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String> sendWhatsAppOtp(String phone) async {
+    final random = Random();
+    final code = (100000 + random.nextInt(900000)).toString();
+    _latestGeneratedOtp = code;
+    _lastOtpChannel = 'WhatsApp';
+    _lastOtpDestination = phone.isNotEmpty ? phone : '+91 98765 43210';
+    notifyListeners();
+    return code;
+  }
+
   Future<String> sendSmsOtp(String phone) async {
-    const code = '123456';
+    final random = Random();
+    final code = (100000 + random.nextInt(900000)).toString();
     _latestGeneratedOtp = code;
     _lastOtpChannel = 'SMS';
     _lastOtpDestination = phone.isNotEmpty ? phone : '+91 98765 43210';

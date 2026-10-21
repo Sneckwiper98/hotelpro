@@ -7,7 +7,7 @@ import 'views/customer_cart_checkout_view.dart';
 import 'views/customer_dining_view.dart';
 import 'views/customer_rooms_view.dart';
 import 'views/customer_orders_history_view.dart';
-import 'views/customer_mobile_login_view.dart';
+import 'views/customer_auth_view.dart';
 import '../../data/services/app_update_service.dart';
 
 class CustomerAppShell extends StatefulWidget {
@@ -49,7 +49,8 @@ class _CustomerAppShellState extends State<CustomerAppShell> {
         Widget appContent;
 
         if (!isAuth && !_isGuestBrowsing) {
-          appContent = CustomerMobileLoginView(
+          appContent = CustomerAuthView(
+            onLoginSuccess: () => setState(() {}),
             onContinueAsGuest: () => setState(() => _isGuestBrowsing = true),
             onBackToErp: widget.onSwitchToErp,
           );

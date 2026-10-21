@@ -41,7 +41,6 @@ class MobileStaffLoginView extends StatefulWidget {
   final MobileAppRole role;
   final String appTitle;
   final String appSubtitle;
-  final List<StaffProfileAuth>? quickProfiles;
   final ValueChanged<StaffProfileAuth> onAuthenticate;
   final VoidCallback? onBackToGateway;
 
@@ -50,7 +49,6 @@ class MobileStaffLoginView extends StatefulWidget {
     required this.role,
     required this.appTitle,
     required this.appSubtitle,
-    this.quickProfiles,
     required this.onAuthenticate,
     this.onBackToGateway,
   });
@@ -186,12 +184,8 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
     final hotelName = repo.clientBusinessName;
     final activeBranch = repo.activeBranch;
     final themeColor = widget.role.themeColor;
-    final targetAppCode = _getAppCodeForRole(widget.role);
 
-    // Filter registered system users who have authority for this specific app
-    final authorizedUsers = repo.appUsers
-        .where((u) => u.isActive && u.canAccessApp(targetAppCode))
-        .toList();
+
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -437,7 +431,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.black.withValues(alpha: 0.3),
-                                  hintText: 'e.g. rahul.waiter or admin',
+                                  hintText: 'Enter your registered Username or ID',
                                   hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
                                   prefixIcon: const Icon(Icons.badge_rounded, color: Colors.white70, size: 20),
                                   border: OutlineInputBorder(
@@ -571,67 +565,7 @@ class _MobileStaffLoginViewState extends State<MobileStaffLoginView> {
                           ),
                         ),
 
-                        // Authorized Roster Hint
-                        if (authorizedUsers.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.people_outline_rounded, color: Colors.white70, size: 14),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Authorized ${widget.role.title} Operators in System (${authorizedUsers.length}):',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: authorizedUsers.map((u) {
-                                    return ActionChip(
-                                      avatar: CircleAvatar(
-                                        radius: 10,
-                                        backgroundColor: themeColor,
-                                        child: Text(
-                                          u.username.substring(0, 1).toUpperCase(),
-                                          style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      label: Text(
-                                        '${u.displayName} (@${u.username})',
-                                        style: const TextStyle(fontSize: 11, color: Colors.white),
-                                      ),
-                                      backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                      side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                                      onPressed: () {
-                                        setState(() {
-                                          _idController.text = u.username;
-                                          _pinController.text = u.password;
-                                          _errorMessage = null;
-                                        });
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+
 
                         const SizedBox(height: 20),
 

@@ -25,44 +25,7 @@ class HousekeepingAppShell extends StatefulWidget {
 class _HousekeepingAppShellState extends State<HousekeepingAppShell> {
   StaffProfileAuth? _authenticatedStaff;
 
-  static const List<StaffProfileAuth> _housekeepingDemoProfiles = [
-    StaffProfileAuth(
-      id: 'HK-001',
-      name: 'Sunita Sharma',
-      role: 'Housekeeping Supervisor',
-      phone: '+91 98201 11002',
-      pin: '1234',
-      avatarEmoji: '🧹',
-      shift: 'Morning Shift (7AM-3PM)',
-    ),
-    StaffProfileAuth(
-      id: 'HK-002',
-      name: 'Pooja Shinde',
-      role: 'Floor Lead Inspector',
-      phone: '+91 98201 11009',
-      pin: '1234',
-      avatarEmoji: '✨',
-      shift: 'General Shift',
-    ),
-    StaffProfileAuth(
-      id: 'HK-003',
-      name: 'Ravi Kumar',
-      role: 'Senior Room Attendant',
-      phone: '+91 98201 11003',
-      pin: '1234',
-      avatarEmoji: '🧼',
-      shift: 'Morning Shift (7AM-3PM)',
-    ),
-    StaffProfileAuth(
-      id: 'HK-004',
-      name: 'Kavita Jadhav',
-      role: 'Linen & Sanitization Lead',
-      phone: '+91 98201 11010',
-      pin: '1234',
-      avatarEmoji: '🧺',
-      shift: 'Evening Shift',
-    ),
-  ];
+
 
   String _selectedFloorFilter = 'All';
   String _selectedStatusFilter = 'All';
@@ -89,7 +52,6 @@ class _HousekeepingAppShellState extends State<HousekeepingAppShell> {
         role: MobileAppRole.housekeeping,
         appTitle: 'Housekeeping & Inspection',
         appSubtitle: 'Room Cleanliness, Sanitization & Maintenance Inspection',
-        quickProfiles: _housekeepingDemoProfiles,
         onAuthenticate: (profile) {
           setState(() {
             _authenticatedStaff = profile;

@@ -58,72 +58,6 @@ class WaiterPosAppShell extends StatefulWidget {
 class _WaiterPosAppShellState extends State<WaiterPosAppShell> {
   StaffProfileAuth? _authenticatedStaff;
 
-  static const List<StaffProfileAuth> _waiterDemoProfiles = [
-    StaffProfileAuth(
-      id: 'CAP-101',
-      name: 'Captain Amit Desai',
-      role: 'Senior F&B Captain',
-      phone: '+91 98201 11004',
-      pin: '1234',
-      avatarEmoji: '👨‍🍳',
-      shift: 'Evening Fine Dining Shift',
-    ),
-    StaffProfileAuth(
-      id: 'CAP-102',
-      name: 'Captain Rahul Verma',
-      role: 'Captain & Table Lead',
-      phone: '+91 98201 11005',
-      pin: '1234',
-      avatarEmoji: '🍽️',
-      shift: 'All-Day Shift',
-    ),
-    StaffProfileAuth(
-      id: 'STW-201',
-      name: 'Steward Priya Singh',
-      role: 'Service Steward',
-      phone: '+91 98201 11006',
-      pin: '1234',
-      avatarEmoji: '👩‍🍳',
-      shift: 'Dinner Shift',
-    ),
-    StaffProfileAuth(
-      id: 'STW-202',
-      name: 'Steward Deepak Nair',
-      role: 'Floor Steward',
-      phone: '+91 98201 11007',
-      pin: '1234',
-      avatarEmoji: '🤵',
-      shift: 'General Shift',
-    ),
-  ];
-
-  static final List<TableCustomerInfo> _quickDemoGuests = [
-    TableCustomerInfo(
-      name: 'Rahul Sharma',
-      phone: '9876543210',
-      dob: DateTime(1992, 8, 15),
-      address: 'Flat 402, Chakala, Andheri East, Mumbai',
-    ),
-    TableCustomerInfo(
-      name: 'Pooja Verma',
-      phone: '9822011223',
-      dob: DateTime(1990, 11, 22),
-      address: 'Godrej One, Bandra Kurla Complex, Mumbai',
-    ),
-    TableCustomerInfo(
-      name: 'Dr. Vikram Malhotra',
-      phone: '9811223344',
-      dob: DateTime(1985, 4, 5),
-      address: 'Silver Sands, Juhu Tara Road, Mumbai',
-    ),
-    TableCustomerInfo(
-      name: 'Ananya Sen',
-      phone: '9733445566',
-      dob: DateTime(1998, 9, 12),
-      address: 'Palm Spring, Malad West, Mumbai',
-    ),
-  ];
-
   int _currentTabIndex = 0;
   String _selectedTable = 'T-01';
   int _selectedTableCapacity = 4;
@@ -363,37 +297,7 @@ class _WaiterPosAppShellState extends State<WaiterPosAppShell> {
 
                   const SizedBox(height: 14),
 
-                  // ── 1-Tap Quick Demo Guests ──
-                  const Text(
-                    'QUICK DEMO PROFILES (1-TAP AUTOFILL)',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 0.5),
-                  ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _quickDemoGuests.map((demo) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ActionChip(
-                            avatar: const Icon(Icons.flash_on_rounded, size: 14, color: Color(0xFF1E8449)),
-                            label: Text(demo.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            onPressed: () {
-                              setDialogState(() {
-                                nameCtrl.text = demo.name;
-                                phoneCtrl.text = demo.phone;
-                                addressCtrl.text = demo.address;
-                                selectedDob = demo.dob;
-                              });
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
 
-                  const SizedBox(height: 14),
 
                   // Customer Name Input
                   TextField(
@@ -1119,7 +1023,6 @@ Thank you for dining with us! 🙏 Please visit again!
         role: MobileAppRole.waiter,
         appTitle: 'Staff Waiter & Captain POS',
         appSubtitle: 'Table-Side Digital Ordering & Kitchen KOT Punch',
-        quickProfiles: _waiterDemoProfiles,
         onAuthenticate: (profile) {
           setState(() {
             _authenticatedStaff = profile;

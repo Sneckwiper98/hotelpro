@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/geofence_service.dart';
 import '../../../data/services/hotel_config_storage.dart';
@@ -8,23 +9,27 @@ import '../../../data/services/hotel_config_storage.dart';
 class CustomerAuthView extends StatefulWidget {
   final VoidCallback onLoginSuccess;
   final AuthTab initialTab;
+  final VoidCallback? onContinueAsGuest;
+  final VoidCallback? onBackToErp;
 
   const CustomerAuthView({
     super.key,
     required this.onLoginSuccess,
     this.initialTab = AuthTab.signIn,
+    this.onContinueAsGuest,
+    this.onBackToErp,
   });
 
   @override
   State<CustomerAuthView> createState() => _CustomerAuthViewState();
 }
 
-enum AuthTab { signIn, register }
-enum LoginMethod { smsOtp, emailOtp, password }
+enum AuthTab { signIn, register, resetPassword }
+enum LoginMethod { whatsappOtp, smsOtp, password }
 
 class _CustomerAuthViewState extends State<CustomerAuthView> {
   late AuthTab _activeTab;
-  LoginMethod _loginMethod = LoginMethod.smsOtp;
+  LoginMethod _loginMethod = LoginMethod.whatsappOtp;
 
   bool _obscurePassword = true;
 
@@ -34,6 +39,15 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
   final _passwordCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   bool _rememberCredentials = true;
+
+  // Reset Password inputs
+  final _resetPhoneCtrl = TextEditingController();
+  final _resetOtpCtrl = TextEditingController();
+  final _resetNewPasswordCtrl = TextEditingController();
+  final _resetConfirmPasswordCtrl = TextEditingController();
+  bool _resetOtpSent = false;
+  bool _obscureResetPass = true;
+  bool _obscureResetConfirmPass = true;
 
   @override
   void initState() {
@@ -64,7 +78,6 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
   final _regAddressCtrl = TextEditingController();
   final _regLandmarkCtrl = TextEditingController();
   final _regPasswordCtrl = TextEditingController();
-  final _regConfirmPasswordCtrl = TextEditingController();
 
   String _selectedAddressType = 'Home'; // Home, Work, Hotel, Other
   double _detectedLat = 19.1136;
@@ -76,7 +89,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
   // OTP State
   bool _isOtpSent = false;
   String? _simulatedBannerMessage;
-  String? _simulatedBannerChannel; // 'SMS' or 'Email'
+  String? _simulatedBannerChannel; // 'WhatsApp', 'SMS', or 'Email'
   int _resendCountdown = 0;
   Timer? _countdownTimer;
 
@@ -86,13 +99,16 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _otpCtrl.dispose();
+    _resetPhoneCtrl.dispose();
+    _resetOtpCtrl.dispose();
+    _resetNewPasswordCtrl.dispose();
+    _resetConfirmPasswordCtrl.dispose();
     _regNameCtrl.dispose();
     _regPhoneCtrl.dispose();
     _regEmailCtrl.dispose();
     _regAddressCtrl.dispose();
     _regLandmarkCtrl.dispose();
     _regPasswordCtrl.dispose();
-    _regConfirmPasswordCtrl.dispose();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -112,34 +128,212 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
     });
   }
 
-  void _handleSendOtp(HotelRepository repo, {required bool isSms}) async {
-    final destination = isSms ? _phoneCtrl.text.trim() : _emailCtrl.text.trim();
-    if (destination.isEmpty) {
+  Future<void> _dispatchWhatsAppMessage(String phone, String message) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final targetPhone = cleanPhone.length == 10 ? '91$cleanPhone' : cleanPhone;
+    final waUri = Uri.parse('whatsapp://send?phone=$targetPhone&text=${Uri.encodeComponent(message)}');
+    final webWaUri = Uri.parse('https://wa.me/$targetPhone?text=${Uri.encodeComponent(message)}');
+    try {
+      if (await canLaunchUrl(waUri)) {
+        await launchUrl(waUri);
+      } else {
+        await launchUrl(webWaUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
+
+  void _handleSendWhatsAppOtp(HotelRepository repo) async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isSms ? 'Please enter a valid mobile number.' : 'Please enter a valid email address.'),
+          content: const Text('Please enter a valid 10-digit mobile number.'),
           backgroundColor: Colors.red.shade700,
         ),
       );
       return;
     }
 
-    String code;
-    if (isSms) {
-      code = await repo.sendSmsOtp(destination);
-    } else {
-      code = await repo.sendEmailOtp(destination);
+    final existingCustomer = repo.findRegisteredCustomer(phone);
+    if (existingCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mobile +91 $phone is not registered yet. Please create an account.'),
+          backgroundColor: Colors.orange.shade800,
+          action: SnackBarAction(
+            label: 'REGISTER',
+            textColor: Colors.white,
+            onPressed: () {
+              setState(() {
+                _activeTab = AuthTab.register;
+                _regPhoneCtrl.text = phone;
+              });
+            },
+          ),
+        ),
+      );
+      return;
     }
+
+    final code = await repo.sendWhatsAppOtp(phone);
+    final msg = '🏨 *HotelPro Verification OTP*\n\nYour One-Time Password (OTP) for login is: *$code*\n\nValid for 5 minutes. Do not share this OTP with anyone.';
+    await _dispatchWhatsAppMessage(phone, msg);
 
     setState(() {
       _isOtpSent = true;
-      _simulatedBannerChannel = isSms ? 'SMS' : 'Email';
-      _simulatedBannerMessage = isSms
-          ? '📲 SMS from HotelPro: Your One-Time Password is $code'
-          : '📬 Email from HotelPro: Your login verification code is $code';
+      _simulatedBannerChannel = 'WhatsApp';
+      _simulatedBannerMessage = '💬 OTP sent to WhatsApp (+91 $phone). Please check your message.';
     });
 
     _startCountdown();
+  }
+
+  void _handleSendSmsOtp(HotelRepository repo) async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter a valid 10-digit mobile number.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
+    final existingCustomer = repo.findRegisteredCustomer(phone);
+    if (existingCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mobile +91 $phone is not registered yet. Please create an account.'),
+          backgroundColor: Colors.orange.shade800,
+          action: SnackBarAction(
+            label: 'REGISTER',
+            textColor: Colors.white,
+            onPressed: () {
+              setState(() {
+                _activeTab = AuthTab.register;
+                _regPhoneCtrl.text = phone;
+              });
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    final code = await repo.sendSmsOtp(phone);
+    setState(() {
+      _isOtpSent = true;
+      _simulatedBannerChannel = 'SMS';
+      _simulatedBannerMessage = '📲 SMS OTP sent to +91 $phone: $code';
+    });
+
+    _startCountdown();
+  }
+
+  void _handleSendResetWhatsAppOtp(HotelRepository repo) async {
+    final phone = _resetPhoneCtrl.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter your 10-digit registered mobile number.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
+    final existingCustomer = repo.findRegisteredCustomer(phone);
+    if (existingCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No account found for +91 $phone. Please create an account.'),
+          backgroundColor: Colors.red.shade700,
+          action: SnackBarAction(
+            label: 'REGISTER',
+            textColor: Colors.white,
+            onPressed: () {
+              setState(() {
+                _activeTab = AuthTab.register;
+                _regPhoneCtrl.text = phone;
+              });
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    final code = await repo.sendWhatsAppOtp(phone);
+    final msg = '🏨 *HotelPro Password Reset*\n\nYour security OTP to reset your password is: *$code*\n\nIf you did not request this, please ignore.';
+    await _dispatchWhatsAppMessage(phone, msg);
+
+    setState(() {
+      _resetOtpSent = true;
+      _simulatedBannerChannel = 'WhatsApp';
+      _simulatedBannerMessage = '💬 Password reset OTP sent to WhatsApp (+91 $phone).';
+    });
+
+    _startCountdown();
+  }
+
+  void _verifyAndResetPassword(HotelRepository repo) {
+    final phone = _resetPhoneCtrl.text.trim();
+    final otp = _resetOtpCtrl.text.trim();
+    final newPass = _resetNewPasswordCtrl.text.trim();
+    final confirmPass = _resetConfirmPasswordCtrl.text.trim();
+
+    if (otp.isEmpty || otp.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the 6-digit WhatsApp OTP.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (newPass.isEmpty || newPass.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New password must be at least 6 characters.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (newPass != confirmPass) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match. Please verify.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final success = repo.resetCustomerPassword(
+      phoneOrEmail: phone,
+      newPassword: newPass,
+      otp: otp,
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('🎉 Password updated successfully! Please sign in with your new password.'),
+          backgroundColor: Colors.green.shade800,
+        ),
+      );
+      setState(() {
+        _activeTab = AuthTab.signIn;
+        _loginMethod = LoginMethod.password;
+        _phoneCtrl.text = phone;
+        _passwordCtrl.text = newPass;
+        _resetOtpSent = false;
+        _resetOtpCtrl.clear();
+        _resetNewPasswordCtrl.clear();
+        _resetConfirmPasswordCtrl.clear();
+        _simulatedBannerMessage = null;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid WhatsApp OTP code. Please enter the correct code.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _verifyAndLogin(HotelRepository repo) {
@@ -151,22 +345,110 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
       return;
     }
 
-    if (repo.verifyOtp(otp)) {
-      final identifier = _loginMethod == LoginMethod.smsOtp ? _phoneCtrl.text.trim() : _emailCtrl.text.trim();
-      repo.loginCustomer(identifier, 'pass123');
+    final identifier = _phoneCtrl.text.trim();
+    final success = repo.loginCustomerWithOtp(identifier, otp);
 
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('🎉 OTP Verified! Welcome, ${repo.currentCustomer?.name ?? "Customer"}!'),
+          content: Text('🎉 Verified! Welcome, ${repo.currentCustomer?.name ?? "Customer"}!'),
           backgroundColor: Colors.green.shade800,
         ),
       );
       widget.onLoginSuccess();
-      Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP code. Please enter 123456.'), backgroundColor: Colors.red),
+      if (!repo.verifyOtp(otp)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid OTP code. Please enter the correct code.'), backgroundColor: Colors.red),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Account for $identifier not found. Please register first.'),
+            backgroundColor: Colors.orange.shade800,
+            action: SnackBarAction(
+              label: 'REGISTER',
+              textColor: Colors.white,
+              onPressed: () {
+                setState(() {
+                  _activeTab = AuthTab.register;
+                  _regPhoneCtrl.text = identifier;
+                });
+              },
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _handlePasswordLogin(HotelRepository repo) {
+    final input = _phoneCtrl.text.trim();
+    final pass = _passwordCtrl.text.trim();
+    if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter phone or email.')));
+      return;
+    }
+    if (pass.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter password.')));
+      return;
+    }
+
+    final success = repo.loginCustomer(input, pass);
+    if (success) {
+      HotelConfigStorage.saveSavedCredentials(
+        'customer',
+        userId: input,
+        password: pass,
+        remember: _rememberCredentials,
       );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Welcome back, ${repo.currentCustomer?.name ?? "Customer"}!'), backgroundColor: Colors.green.shade800),
+      );
+      widget.onLoginSuccess();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      final exists = repo.findRegisteredCustomer(input);
+      if (exists == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No account registered for $input. Please create an account.'),
+            backgroundColor: Colors.red.shade700,
+            action: SnackBarAction(
+              label: 'REGISTER',
+              textColor: Colors.white,
+              onPressed: () {
+                setState(() {
+                  _activeTab = AuthTab.register;
+                  _regPhoneCtrl.text = input;
+                });
+              },
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Incorrect password. Please try again or reset via WhatsApp.'),
+            backgroundColor: Colors.red.shade700,
+            action: SnackBarAction(
+              label: 'RESET',
+              textColor: Colors.white,
+              onPressed: () {
+                setState(() {
+                  _activeTab = AuthTab.resetPassword;
+                  _resetPhoneCtrl.text = input;
+                });
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -221,12 +503,22 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 18),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : (widget.onBackToErp != null
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 20),
+                    tooltip: 'Return to System Gateway',
+                    onPressed: widget.onBackToErp,
+                  )
+                : null),
         title: Text(
-          _activeTab == AuthTab.signIn ? 'Sign In' : 'Create Account',
+          _activeTab == AuthTab.signIn
+              ? 'Sign In'
+              : (_activeTab == AuthTab.register ? 'Create Account' : 'Reset Password'),
           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
         ),
         centerTitle: true,
@@ -236,16 +528,16 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Simulated Notification Banner (Instant OTP Alert) ────────
+            // ── WhatsApp / SMS Status Banner ────────
             if (_simulatedBannerMessage != null) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: _simulatedBannerChannel == 'SMS'
-                        ? [const Color(0xFF1E88E5), const Color(0xFF1565C0)]
-                        : [const Color(0xFF43A047), const Color(0xFF2E7D32)],
+                    colors: _simulatedBannerChannel == 'WhatsApp'
+                        ? [const Color(0xFF25D366), const Color(0xFF128C7E)]
+                        : [const Color(0xFF1E88E5), const Color(0xFF1565C0)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -261,50 +553,42 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                 child: Row(
                   children: [
                     Icon(
-                      _simulatedBannerChannel == 'SMS' ? Icons.sms_rounded : Icons.email_rounded,
+                      _simulatedBannerChannel == 'WhatsApp'
+                          ? Icons.chat_bubble_rounded
+                          : Icons.sms_rounded,
                       color: Colors.white,
-                      size: 24,
+                      size: 22,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _simulatedBannerMessage!,
-                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Click button to auto-fill code',
-                            style: TextStyle(color: Colors.white70, fontSize: 10),
-                          ),
-                        ],
+                      child: Text(
+                        _simulatedBannerMessage!,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _otpCtrl.text = '123456';
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('⚡ OTP Auto-Filled: 123456'),
-                            backgroundColor: Colors.black87,
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        minimumSize: Size.zero,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    if (_simulatedBannerChannel == 'WhatsApp') ...[
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final phone = _activeTab == AuthTab.resetPassword
+                              ? _resetPhoneCtrl.text.trim()
+                              : _phoneCtrl.text.trim();
+                          final msg = _activeTab == AuthTab.resetPassword
+                              ? '🏨 *HotelPro Password Reset*\n\nYour security OTP is: *${repo.latestGeneratedOtp}*'
+                              : '🏨 *HotelPro Security Verification*\n\nYour login OTP is: *${repo.latestGeneratedOtp}*';
+                          _dispatchWhatsAppMessage(phone, msg);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF128C7E),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 1,
+                        ),
+                        child: const Text('Open WhatsApp', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                       ),
-                      child: const Text('Auto-Fill', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -351,85 +635,142 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
             const SizedBox(height: 18),
 
             // ── Primary Switcher: Sign In vs Create Account ─────────────────
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
+            if (_activeTab == AuthTab.resetPassword) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF81C784)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_reset_rounded, color: Color(0xFF2E7D32), size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Password Recovery via WhatsApp OTP',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF2E7D32)),
+                      ),
+                    ),
+                    InkWell(
                       onTap: () => setState(() {
                         _activeTab = AuthTab.signIn;
-                        _isOtpSent = false;
+                        _resetOtpSent = false;
                         _simulatedBannerMessage = null;
                       }),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _activeTab == AuthTab.signIn ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(9),
-                          boxShadow: _activeTab == AuthTab.signIn
-                              ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
-                              : null,
-                        ),
-                        child: Text(
-                          '🔑 Sign In',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: _activeTab == AuthTab.signIn ? const Color(0xFFE23744) : Colors.grey.shade700,
-                          ),
-                        ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _activeTab = AuthTab.register;
-                        _isOtpSent = false;
-                        _simulatedBannerMessage = null;
-                      }),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: _activeTab == AuthTab.register ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(9),
-                          boxShadow: _activeTab == AuthTab.register
-                              ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
-                              : null,
-                        ),
-                        child: Text(
-                          '📝 Create Account',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: _activeTab == AuthTab.register ? const Color(0xFFE23744) : Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 14),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _activeTab = AuthTab.signIn;
+                          _isOtpSent = false;
+                          _simulatedBannerMessage = null;
+                        }),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _activeTab == AuthTab.signIn ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            boxShadow: _activeTab == AuthTab.signIn
+                                ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                                : null,
+                          ),
+                          child: Text(
+                            '🔑 Sign In',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: _activeTab == AuthTab.signIn ? const Color(0xFFE23744) : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _activeTab = AuthTab.register;
+                          _isOtpSent = false;
+                          _simulatedBannerMessage = null;
+                        }),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _activeTab == AuthTab.register ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            boxShadow: _activeTab == AuthTab.register
+                                ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                                : null,
+                          ),
+                          child: Text(
+                            '📝 Create Account',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: _activeTab == AuthTab.register ? const Color(0xFFE23744) : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
-            // ── Content ────────────────────────────────────────────────────
+            // ── Dynamic Body View ──────────────────────────────────────────
             if (_activeTab == AuthTab.signIn)
               _buildSignInSection(context, repo)
+            else if (_activeTab == AuthTab.register)
+              _buildRegisterSection(context, repo)
             else
-              _buildRegisterSection(context, repo),
+              _buildResetPasswordSection(context, repo),
 
             const SizedBox(height: 20),
             _buildISecureFooter(),
+            if (widget.onContinueAsGuest != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: widget.onContinueAsGuest,
+                icon: const Icon(Icons.explore_rounded, color: Color(0xFF1B4F72), size: 18),
+                label: const Text(
+                  'Explore Restaurant Menu as Guest',
+                  style: TextStyle(
+                    color: Color(0xFF1B4F72),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: const BorderSide(color: Color(0xFF1B4F72), width: 1.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -450,17 +791,17 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Sub-Tab Switcher: SMS OTP, Email OTP, Password
+          // Sub-Tab Switcher: WhatsApp OTP, SMS OTP, Password
           Row(
             children: [
               _buildMethodChip(
-                label: '📱 SMS OTP',
-                method: LoginMethod.smsOtp,
+                label: '💬 WhatsApp OTP',
+                method: LoginMethod.whatsappOtp,
               ),
               const SizedBox(width: 8),
               _buildMethodChip(
-                label: '📧 Email OTP',
-                method: LoginMethod.emailOtp,
+                label: '📱 SMS OTP',
+                method: LoginMethod.smsOtp,
               ),
               const SizedBox(width: 8),
               _buildMethodChip(
@@ -471,9 +812,51 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
           ),
           const SizedBox(height: 16),
 
-          // ── Flow 1: SMS OTP ──
-          if (_loginMethod == LoginMethod.smsOtp) ...[
-            const Text('Mobile Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+          // ── Flow 1: WhatsApp OTP ──
+          if (_loginMethod == LoginMethod.whatsappOtp) ...[
+            const Text('Registered Mobile Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Text('🇮🇳 +91', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF25D366), width: 2)),
+                hintText: 'Enter 10-digit mobile number',
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            if (!_isOtpSent) ...[
+              ElevatedButton.icon(
+                onPressed: () => _handleSendWhatsAppOtp(repo),
+                icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                label: const Text('SEND OTP ON WHATSAPP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 2,
+                ),
+              ),
+            ] else ...[
+              _buildOtpInputCard(repo, isWhatsApp: true),
+            ],
+          ]
+
+          // ── Flow 2: SMS OTP ──
+          else if (_loginMethod == LoginMethod.smsOtp) ...[
+            const Text('Registered Mobile Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
             const SizedBox(height: 6),
             TextField(
               controller: _phoneCtrl,
@@ -487,7 +870,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE23744), width: 1.5)),
-                hintText: '9876543210',
+                hintText: 'Enter 10-digit mobile number',
                 isDense: true,
                 filled: true,
                 fillColor: const Color(0xFFFAFAFA),
@@ -496,8 +879,10 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
             const SizedBox(height: 14),
 
             if (!_isOtpSent) ...[
-              ElevatedButton(
-                onPressed: () => _handleSendOtp(repo, isSms: true),
+              ElevatedButton.icon(
+                onPressed: () => _handleSendSmsOtp(repo),
+                icon: const Icon(Icons.sms_rounded, size: 18),
+                label: const Text('GET OTP VIA SMS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE23744),
                   foregroundColor: Colors.white,
@@ -505,61 +890,9 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   elevation: 2,
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.sms_rounded, size: 16),
-                    SizedBox(width: 8),
-                    Text('GET OTP VIA SMS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                  ],
-                ),
               ),
             ] else ...[
-              _buildOtpInputCard(repo, isSms: true),
-            ],
-          ]
-
-          // ── Flow 2: Email OTP ──
-          else if (_loginMethod == LoginMethod.emailOtp) ...[
-            const Text('Email Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.email_rounded, color: Color(0xFFE23744), size: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE23744), width: 1.5)),
-                hintText: 'amit.sharma@example.com',
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFFFAFAFA),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            if (!_isOtpSent) ...[
-              ElevatedButton(
-                onPressed: () => _handleSendOtp(repo, isSms: false),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE23744),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 2,
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.mark_email_read_rounded, size: 16),
-                    SizedBox(width: 8),
-                    Text('GET OTP VIA EMAIL', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                  ],
-                ),
-              ),
-            ] else ...[
-              _buildOtpInputCard(repo, isSms: false),
+              _buildOtpInputCard(repo, isWhatsApp: false),
             ],
           ]
 
@@ -602,7 +935,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                 fillColor: const Color(0xFFFAFAFA),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             // ── Save ID & Password Checkbox ──
             Row(
@@ -622,12 +955,31 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                   child: GestureDetector(
                     onTap: () => setState(() => _rememberCredentials = !_rememberCredentials),
                     child: const Text(
-                      'Save ID & Password on this device',
+                      'Save login on this device',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF2C3E50),
                       ),
+                    ),
+                  ),
+                ),
+                // ── Forgot Password Link ──
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _activeTab = AuthTab.resetPassword;
+                      _resetPhoneCtrl.text = _phoneCtrl.text.trim();
+                      _resetOtpSent = false;
+                      _simulatedBannerMessage = null;
+                    });
+                  },
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E88E5),
                     ),
                   ),
                 ),
@@ -637,29 +989,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
             const SizedBox(height: 16),
 
             ElevatedButton(
-              onPressed: () {
-                final input = _phoneCtrl.text.trim();
-                final pass = _passwordCtrl.text.trim();
-                if (input.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter phone or email.')));
-                  return;
-                }
-
-                // Save or clear credentials based on checkbox
-                HotelConfigStorage.saveSavedCredentials(
-                  'customer',
-                  userId: input,
-                  password: pass,
-                  remember: _rememberCredentials,
-                );
-
-                repo.loginCustomer(input, pass);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Welcome back, ${repo.currentCustomer?.name ?? "Customer"}!'), backgroundColor: Colors.green.shade800),
-                );
-                widget.onLoginSuccess();
-                Navigator.of(context).pop();
-              },
+              onPressed: () => _handlePasswordLogin(repo),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE23744),
                 foregroundColor: Colors.white,
@@ -684,6 +1014,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
 
   Widget _buildMethodChip({required String label, required LoginMethod method}) {
     final isSelected = _loginMethod == method;
+    final color = method == LoginMethod.whatsappOtp ? const Color(0xFF25D366) : const Color(0xFFE23744);
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() {
@@ -695,10 +1026,10 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFE23744).withValues(alpha: 0.1) : Colors.grey.shade100,
+            color: isSelected ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? const Color(0xFFE23744) : Colors.grey.shade300,
+              color: isSelected ? color : Colors.grey.shade300,
               width: isSelected ? 1.5 : 1.0,
             ),
           ),
@@ -706,9 +1037,9 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFFE23744) : Colors.grey.shade700,
+              color: isSelected ? color : Colors.grey.shade700,
             ),
           ),
         ),
@@ -716,7 +1047,7 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
     );
   }
 
-  Widget _buildOtpInputCard(HotelRepository repo, {required bool isSms}) {
+  Widget _buildOtpInputCard(HotelRepository repo, {required bool isWhatsApp}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -724,11 +1055,11 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Enter 6-Digit OTP',
+              isWhatsApp ? 'Enter 6-Digit WhatsApp OTP' : 'Enter 6-Digit SMS OTP',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
             ),
             Text(
-              _resendCountdown > 0 ? 'Resend in ${_resendCountdown}s' : 'OTP Expired',
+              _resendCountdown > 0 ? 'Resend in ${_resendCountdown}s' : 'Code ready to resend',
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
             ),
           ],
@@ -739,11 +1070,14 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
           keyboardType: TextInputType.number,
           maxLength: 6,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, letterSpacing: 12, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+          style: const TextStyle(fontSize: 22, letterSpacing: 10, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
           decoration: InputDecoration(
             counterText: '',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE23744))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE23744), width: 2)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: isWhatsApp ? const Color(0xFF25D366) : const Color(0xFFE23744), width: 2),
+            ),
             hintText: '••••••',
             hintStyle: TextStyle(letterSpacing: 10, color: Colors.grey.shade300),
             isDense: true,
@@ -756,21 +1090,197 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
         ElevatedButton(
           onPressed: () => _verifyAndLogin(repo),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE23744),
+            backgroundColor: isWhatsApp ? const Color(0xFF25D366) : const Color(0xFFE23744),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             elevation: 2,
           ),
-          child: const Text('VERIFY & PROCEED', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          child: const Text('VERIFY & SIGN IN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 6),
         if (_resendCountdown == 0)
           TextButton(
-            onPressed: () => _handleSendOtp(repo, isSms: isSms),
-            child: const Text('Resend OTP Code', style: TextStyle(color: Color(0xFFE23744), fontWeight: FontWeight.bold, fontSize: 12)),
+            onPressed: () => isWhatsApp ? _handleSendWhatsAppOtp(repo) : _handleSendSmsOtp(repo),
+            child: Text(
+              isWhatsApp ? 'Resend OTP on WhatsApp' : 'Resend OTP Code',
+              style: TextStyle(color: isWhatsApp ? const Color(0xFF25D366) : const Color(0xFFE23744), fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
       ],
+    );
+  }
+
+  // ── Reset Password Section ──────────────────────────────────────────────
+  Widget _buildResetPasswordSection(BuildContext context, HotelRepository repo) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87)),
+                    Text('Secure WhatsApp OTP Verification', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (!_resetOtpSent) ...[
+            const Text('Registered Mobile Number *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _resetPhoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Text('🇮🇳 +91', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF25D366), width: 2)),
+                hintText: 'Enter 10-digit registered mobile',
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            ElevatedButton.icon(
+              onPressed: () => _handleSendResetWhatsAppOtp(repo),
+              icon: const Icon(Icons.send_rounded, size: 16),
+              label: const Text('SEND RESET CODE ON WHATSAPP', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Enter WhatsApp OTP sent to +91 ${_resetPhoneCtrl.text}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _resetOtpCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+              decoration: InputDecoration(
+                counterText: '',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF25D366), width: 2)),
+                hintText: '••••••',
+                hintStyle: const TextStyle(letterSpacing: 8, color: Colors.grey),
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            const Text('New Password (min 6 characters) *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _resetNewPasswordCtrl,
+              obscureText: _obscureResetPass,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF25D366), size: 18),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureResetPass ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: Colors.grey),
+                  onPressed: () => setState(() => _obscureResetPass = !_obscureResetPass),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                hintText: 'Enter new password',
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            const Text('Confirm New Password *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _resetConfirmPasswordCtrl,
+              obscureText: _obscureResetConfirmPass,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.lock_rounded, color: Color(0xFF25D366), size: 18),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureResetConfirmPass ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: Colors.grey),
+                  onPressed: () => setState(() => _obscureResetConfirmPass = !_obscureResetConfirmPass),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                hintText: 'Confirm new password',
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFFAFAFA),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            ElevatedButton(
+              onPressed: () => _verifyAndResetPassword(repo),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E8449),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              child: const Text('VERIFY OTP & UPDATE PASSWORD', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 6),
+            if (_resendCountdown == 0)
+              TextButton(
+                onPressed: () => _handleSendResetWhatsAppOtp(repo),
+                child: const Text('Resend WhatsApp OTP', style: TextStyle(color: Color(0xFF25D366), fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+          ],
+
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() {
+                _activeTab = AuthTab.signIn;
+                _resetOtpSent = false;
+                _simulatedBannerMessage = null;
+              }),
+              child: const Text('Cancel & Back to Sign In', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -803,12 +1313,12 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
           const SizedBox(height: 12),
 
           // 2. Mobile
-          const Text('Mobile Number (for SMS OTP & Delivery Calls) *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+          const Text('Mobile Number (for WhatsApp / SMS OTP) *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
           const SizedBox(height: 6),
           TextField(
             controller: _regPhoneCtrl,
             keyboardType: TextInputType.phone,
-            decoration: _fieldDeco('+91 98201 XXXXX', Icons.phone_android_rounded),
+            decoration: _fieldDeco('e.g. 9820123456', Icons.phone_android_rounded),
           ),
           const SizedBox(height: 12),
 
@@ -1032,7 +1542,9 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
     );
 
     widget.onLoginSuccess();
-    Navigator.of(context).pop();
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   InputDecoration _fieldDeco(String hint, IconData icon) {
@@ -1076,14 +1588,14 @@ class _CustomerAuthViewState extends State<CustomerAuthView> {
                 style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
               const Text(
-                'iSecure Systems OTP Gateway',
+                'iSecure Systems WhatsApp Gateway',
                 style: TextStyle(fontSize: 11.5, color: Color(0xFF1B4F72), fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 2),
           Text(
-            'SMS & Email Instant OTP Delivery with 256-Bit Encryption',
+            'WhatsApp Instant OTP Delivery & 256-Bit Customer Authentication',
             style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500),
           ),
         ],

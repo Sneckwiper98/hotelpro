@@ -24,44 +24,7 @@ class ManagerMisAppShell extends StatefulWidget {
 class _ManagerMisAppShellState extends State<ManagerMisAppShell> {
   StaffProfileAuth? _authenticatedStaff;
 
-  static const List<StaffProfileAuth> _managerDemoProfiles = [
-    StaffProfileAuth(
-      id: 'GM-001',
-      name: 'Rajesh Mehta',
-      role: 'General Manager',
-      phone: '+91 98201 11020',
-      pin: '1234',
-      avatarEmoji: '👔',
-      shift: 'Executive Management',
-    ),
-    StaffProfileAuth(
-      id: 'MGR-002',
-      name: 'Priya Sharma',
-      role: 'Director of Operations',
-      phone: '+91 98201 11021',
-      pin: '1234',
-      avatarEmoji: '💼',
-      shift: 'Operations & MIS',
-    ),
-    StaffProfileAuth(
-      id: 'OWN-001',
-      name: 'Vikram Singhania',
-      role: 'Owner & Managing Director',
-      phone: '+91 98201 11022',
-      pin: '1234',
-      avatarEmoji: '👑',
-      shift: 'Board of Directors',
-    ),
-    StaffProfileAuth(
-      id: 'ADM-999',
-      name: 'Super Administrator',
-      role: 'IT & System Admin',
-      phone: '+91 98201 11023',
-      pin: '1234',
-      avatarEmoji: '🛡️',
-      shift: '24x7 Enterprise',
-    ),
-  ];
+
 
   String _selectedPeriod = 'Today';
   final _currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
@@ -85,7 +48,6 @@ class _ManagerMisAppShellState extends State<ManagerMisAppShell> {
         role: MobileAppRole.manager,
         appTitle: 'Manager & Owner Live MIS',
         appSubtitle: 'Executive Revenue, Occupancy, ADR & Operations Terminal',
-        quickProfiles: _managerDemoProfiles,
         onAuthenticate: (profile) {
           setState(() {
             _authenticatedStaff = profile;

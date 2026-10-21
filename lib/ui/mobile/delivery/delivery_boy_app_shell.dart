@@ -25,48 +25,7 @@ class DeliveryBoyAppShell extends StatefulWidget {
 class _DeliveryBoyAppShellState extends State<DeliveryBoyAppShell> {
   StaffProfileAuth? _authenticatedStaff;
 
-  static const List<StaffProfileAuth> _riderDemoProfiles = [
-    StaffProfileAuth(
-      id: 'RIDER-01',
-      name: 'Amit Sharma',
-      role: 'Senior Delivery Partner',
-      phone: '+91 98203 66789',
-      pin: '1234',
-      avatarEmoji: '🛵',
-      shift: 'Full-Time Shift',
-      vehicleNo: 'MH 02 BV 9912 (Activa 6G)',
-    ),
-    StaffProfileAuth(
-      id: 'RIDER-02',
-      name: 'Vikram Jadhav',
-      role: 'Express Delivery Partner',
-      phone: '+91 98200 11223',
-      pin: '1234',
-      avatarEmoji: '🏍️',
-      shift: 'Night Rush Shift',
-      vehicleNo: 'MH 02 DQ 8821 (Pulsar 150)',
-    ),
-    StaffProfileAuth(
-      id: 'RIDER-03',
-      name: 'Raju Patil',
-      role: 'Delivery Partner',
-      phone: '+91 98204 55678',
-      pin: '1234',
-      avatarEmoji: '🛴',
-      shift: 'Evening Peak Shift',
-      vehicleNo: 'MH 02 CK 4410 (Jupiter 125)',
-    ),
-    StaffProfileAuth(
-      id: 'RIDER-04',
-      name: 'Suresh Yadav',
-      role: 'Weekend Rider Partner',
-      phone: '+91 98205 99887',
-      pin: '1234',
-      avatarEmoji: '🛵',
-      shift: 'Weekend Shift',
-      vehicleNo: 'MH 03 AZ 1205 (Splendor+)',
-    ),
-  ];
+
 
   int _currentTabIndex = 0;
   bool _isOnDuty = true;
@@ -96,7 +55,6 @@ class _DeliveryBoyAppShellState extends State<DeliveryBoyAppShell> {
         role: MobileAppRole.deliveryBoy,
         appTitle: 'Delivery Boy Partner App',
         appSubtitle: 'Express Food Delivery, Live Dispatch & Order Fulfillment',
-        quickProfiles: _riderDemoProfiles,
         onAuthenticate: (profile) {
           setState(() {
             _authenticatedStaff = profile;
