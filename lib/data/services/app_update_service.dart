@@ -46,7 +46,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String baseInstalledVersion = '1.0.14';
+  static const String baseInstalledVersion = '1.0.15';
   static String? _cachedDynamicVersion;
 
   /// Dynamically retrieves current installed version string (e.g. '1.0.11').
@@ -96,6 +96,22 @@ class AppUpdateService {
 
     _cachedDynamicVersion = baseInstalledVersion;
     return baseInstalledVersion;
+  }
+
+  /// Asynchronously fetches the exact installed version from the native Android PackageManager (if on Android),
+  /// falling back to currentInstalledVersion.
+  static Future<String> getInstalledVersionAsync() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final v = await _installerChannel.invokeMethod<String>('getAppVersion');
+        if (v != null && v.trim().isNotEmpty) {
+          final clean = v.replaceAll('v', '').trim();
+          _cachedDynamicVersion = clean;
+          return clean;
+        }
+      } catch (_) {}
+    }
+    return currentInstalledVersion;
   }
 
   /// Sets or updates the persisted version manifest
@@ -238,10 +254,11 @@ class AppUpdateService {
           }
         }
 
-        final hasUpdate = isNewerVersion(cleanTag, currentInstalledVersion);
+        final installedVer = await getInstalledVersionAsync();
+        final hasUpdate = isNewerVersion(cleanTag, installedVer);
 
         return AppUpdateInfo(
-          currentVersion: currentInstalledVersion,
+          currentVersion: installedVer,
           latestVersion: cleanTag,
           releaseTitle: releaseTitle,
           releaseNotes: releaseNotes,
@@ -507,12 +524,41 @@ exit
   }) async {
     if (!Platform.isAndroid) return;
 
-    final tempDir = Directory.systemTemp;
-    final apkFile = File('${tempDir.path}/hotelpro_update_${info.latestVersion}.apk');
+    // 1. Resolve standard Android cache directory to prevent FileProvider code_cache errors
+    String downloadDirPath = Directory.systemTemp.path;
+    try {
+      final nativeCache = await _installerChannel.invokeMethod<String>('getCacheDir');
+      if (nativeCache != null && nativeCache.isNotEmpty) {
+        downloadDirPath = nativeCache;
+      }
+    } catch (_) {}
+
+    final targetDir = Directory(downloadDirPath);
+    if (!targetDir.existsSync()) {
+      targetDir.createSync(recursive: true);
+    }
+
+    final apkFile = File('${targetDir.path}/hotelpro_update_${info.latestVersion}.apk');
+
+    // Clean up any stale or previous update APKs from the cache folder
+    try {
+      if (targetDir.existsSync()) {
+        for (final entity in targetDir.listSync()) {
+          if (entity is File &&
+              entity.path.contains('hotelpro_update_') &&
+              entity.path.endsWith('.apk') &&
+              entity.path != apkFile.path) {
+            try {
+              entity.deleteSync();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
 
     onProgress(0.05, 'Connecting to update server...');
 
-    // 1. Download APK with stream progress
+    // 2. Download APK with stream progress
     await downloadFileWithProgress(
       url: info.downloadUrl,
       saveFile: apkFile,
@@ -524,9 +570,14 @@ exit
       },
     );
 
+    // Verify downloaded APK exists and is non-empty
+    if (!apkFile.existsSync() || apkFile.lengthSync() == 0) {
+      throw Exception('Downloaded update package is missing or corrupted. Please try again.');
+    }
+
     onProgress(0.98, 'Verifying APK & launching package installer...');
 
-    // 2. Invoke native package installer via MethodChannel
+    // 3. Invoke native package installer via MethodChannel
     try {
       final success = await _installerChannel.invokeMethod<bool>('installApk', {
         'filePath': apkFile.path,
