@@ -2746,6 +2746,31 @@ class HotelRepository extends ChangeNotifier {
   double get couponDiscountPercentage => _couponDiscountPercentage;
   List<CustomerFoodOrderModel> get customerOrders => List.unmodifiable(_customerOrders);
   List<DeliveryRiderModel> get deliveryRiders => List.unmodifiable(_deliveryRiders);
+
+  /// Returns only the orders placed by the currently logged-in customer.
+  /// If no customer is logged in, returns an empty list.
+  List<CustomerFoodOrderModel> get loggedInCustomerOrders {
+    if (_currentCustomer == null) return const [];
+    final currentCustId = _currentCustomer!.id.trim();
+    final cleanCustPhone = _currentCustomer!.phone.replaceAll(RegExp(r'[\s\-+]'), '');
+
+    return _customerOrders.where((o) {
+      // 1. Match by customer ID if available
+      if (currentCustId.isNotEmpty && o.customerId.trim() == currentCustId) {
+        return true;
+      }
+      // 2. Match by customer mobile number (ignoring +91 / formatting differences)
+      final cleanOrderPhone = o.customerPhone.replaceAll(RegExp(r'[\s\-+]'), '');
+      if (cleanOrderPhone.isNotEmpty && cleanCustPhone.isNotEmpty) {
+        if (cleanOrderPhone == cleanCustPhone ||
+            cleanOrderPhone.endsWith(cleanCustPhone) ||
+            cleanCustPhone.endsWith(cleanOrderPhone)) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+  }
   String? get latestGeneratedOtp => _latestGeneratedOtp;
   String? get lastOtpChannel => _lastOtpChannel;
   String? get lastOtpDestination => _lastOtpDestination;

@@ -6,13 +6,29 @@ import '../../../data/repositories/hotel_repository.dart';
 import '../dialogs/customer_invoice_dialog.dart';
 import 'customer_order_tracking_view.dart';
 
+import 'customer_auth_view.dart';
+
 class CustomerOrdersHistoryView extends StatelessWidget {
-  const CustomerOrdersHistoryView({super.key});
+  final VoidCallback? onRequestLogin;
+
+  const CustomerOrdersHistoryView({
+    super.key,
+    this.onRequestLogin,
+  });
 
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<HotelRepository>();
-    final orders = repo.customerOrders;
+    final isAuth = repo.isCustomerLoggedIn;
+    final currentCustomer = repo.currentCustomer;
+
+    // ── Guest State: Must login to view personal orders ───────────────────
+    if (!isAuth || currentCustomer == null) {
+      return _buildGuestLoginPrompt(context);
+    }
+
+    // ── Logged-in State: Show ONLY orders placed by this specific customer ─
+    final orders = repo.loggedInCustomerOrders;
     final activeOrders = orders.where((o) => o.orderStatus != CustomerOrderStatus.delivered && o.orderStatus != CustomerOrderStatus.cancelled).toList();
     final pastOrders = orders.where((o) => o.orderStatus == CustomerOrderStatus.delivered || o.orderStatus == CustomerOrderStatus.cancelled).toList();
 
@@ -23,7 +39,16 @@ class CustomerOrdersHistoryView extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0.5,
-          title: const Text('My Orders & Bills', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('My Orders & Bills', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                '${currentCustomer.name} (${currentCustomer.phone})',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
           bottom: const TabBar(
             labelColor: Color(0xFFE23744),
             unselectedLabelColor: Colors.grey,
@@ -40,6 +65,90 @@ class CustomerOrdersHistoryView extends StatelessWidget {
             _buildOrdersList(context, repo, activeOrders, isActive: true),
             _buildOrdersList(context, repo, pastOrders, isActive: false),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestLoginPrompt(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        title: const Text('My Orders & Bills', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE23744).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  size: 46,
+                  color: Color(0xFFE23744),
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Login to View Your Orders',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in or register with your mobile number to view your active delivery orders, live rider tracking, and past dining invoices.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (onRequestLogin != null) {
+                    onRequestLogin!();
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (ctx) => CustomerAuthView(
+                          onLoginSuccess: () => Navigator.of(ctx).pop(),
+                          onContinueAsGuest: () => Navigator.of(ctx).pop(),
+                        ),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text(
+                  'Login / Sign Up',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE23744),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 2,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

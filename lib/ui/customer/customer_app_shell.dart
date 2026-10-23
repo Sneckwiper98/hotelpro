@@ -68,7 +68,9 @@ class _CustomerAppShellState extends State<CustomerAppShell> {
                       ),
                       const CustomerDiningView(),
                       const CustomerRoomsView(),
-                      const CustomerOrdersHistoryView(),
+                      CustomerOrdersHistoryView(
+                        onRequestLogin: () => setState(() => _isGuestBrowsing = false),
+                      ),
                     ],
                   ),
             bottomNavigationBar: _isCartOpen
