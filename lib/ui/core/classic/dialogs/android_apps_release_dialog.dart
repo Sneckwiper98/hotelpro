@@ -126,11 +126,15 @@ class _AndroidAppsReleaseDialogState extends State<AndroidAppsReleaseDialog> {
   Color _statusBannerColor = const Color(0xFF27AE60);
 
   File? _findApkFile(String fileName) {
+    final altName = fileName.replaceAll('_v1.0', '');
+
     // 1. Check in releases/ directory
     final releasesDir = Directory('releases');
     if (releasesDir.existsSync()) {
       final f = File('${releasesDir.path}${Platform.pathSeparator}$fileName');
       if (f.existsSync()) return f;
+      final altF = File('${releasesDir.path}${Platform.pathSeparator}$altName');
+      if (altF.existsSync()) return altF;
     }
 
     // 2. Check in build/app/outputs/flutter-apk/
@@ -138,6 +142,8 @@ class _AndroidAppsReleaseDialogState extends State<AndroidAppsReleaseDialog> {
     if (buildDir.existsSync()) {
       final namedFile = File('${buildDir.path}${Platform.pathSeparator}$fileName');
       if (namedFile.existsSync()) return namedFile;
+      final altNamedFile = File('${buildDir.path}${Platform.pathSeparator}$altName');
+      if (altNamedFile.existsSync()) return altNamedFile;
 
       // Fallback: app-release.apk
       final defaultRelease = File('${buildDir.path}${Platform.pathSeparator}app-release.apk');

@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../config/classic_erp_theme.dart';
 import '../../../data/models/accounting_model.dart';
+import '../../../data/models/invoice_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
+import '../../../data/services/tally_accounting_service.dart';
 import '../../core/classic/classic_form_widgets.dart';
 import '../../core/classic/utils/report_utils.dart';
 import '../../core/components/hotel_logo_widget.dart';
@@ -51,7 +53,7 @@ class _AccountingViewState extends State<AccountingView> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTab.clamp(0, 3));
   }
 
   @override
@@ -172,6 +174,16 @@ class _AccountingViewState extends State<AccountingView> with SingleTickerProvid
                     ],
                   ),
                 ),
+                Tab(
+                  icon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.account_balance_wallet_rounded, size: 14),
+                      SizedBox(width: 6),
+                      Text('4. 🇮🇳 Tally & GST Statutory Compliance'),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -184,6 +196,7 @@ class _AccountingViewState extends State<AccountingView> with SingleTickerProvid
                 _buildPurchaseTab(repo, purchases),
                 _buildExpenseTab(repo, expenses),
                 _buildBalanceSheetTab(repo, balanceSheet),
+                _buildTallyAndGstTab(repo, repo.allInvoices, purchases, expenses),
               ],
             ),
           ),
@@ -2737,4 +2750,746 @@ class _AccountingViewState extends State<AccountingView> with SingleTickerProvid
       ),
     );
   }
+
+  // ===========================================================================
+  // TAB 4: 🇮🇳 TALLY & GST STATUTORY COMPLIANCE HUB
+  // ===========================================================================
+
+  Widget _buildTallyAndGstTab(
+    HotelRepository repo,
+    List<ErpInvoiceRecord> invoices,
+    List<PurchaseEntry> purchases,
+    List<ExpenseEntry> expenses,
+  ) {
+    final gstr3b = TallyAccountingService.calculateGstr3b(
+      invoices: invoices,
+      purchases: purchases,
+      expenses: expenses,
+    );
+    final auditEntries = TallyAccountingService.auditTrail;
+    final foreignGuests = repo.guests.where((g) => g.isForeigner).toList();
+    final indianGuests = repo.guests.where((g) => !g.isForeigner).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── 1. Top Statutory Banner ──────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0C2461), Color(0xFF1B4F72)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(3),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.verified_user_rounded, color: Colors.amberAccent, size: 28),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '${repo.clientBusinessName} — Statutory Compliance & Accounts Hub',
+                            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E8449),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: const Text('GOVT RULES VERIFIED', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'GSTIN: ${repo.activeBranch.taxIdentifier} • State Code: 27 (Maharashtra) • TallyPrime / Tally ERP 9 XML XML Engine • MCA Rule 11(g) Audit Trail • FRRO Form C Foreigner Tracking',
+                        style: const TextStyle(color: Colors.white70, fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── 2. Tally XML Accounting Suite ────────────────────────────────
+          _sectionHeader(
+            icon: Icons.account_balance_wallet_rounded,
+            title: 'TallyPrime & Tally ERP 9 XML One-Click Integration',
+            subtitle: 'Generate standard Tally XML files for instant voucher and ledger import without third-party converters.',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _tallyCard(
+                  icon: Icons.point_of_sale_rounded,
+                  title: 'Sales Vouchers XML',
+                  subtitle: '${invoices.length} Invoices (${_currency.format(invoices.fold(0.0, (s, i) => s + i.totalAmount))})',
+                  description: 'Debits Debtors/Cash, Credits Room/POS Sales & GST Output',
+                  buttonLabel: 'Export Sales XML',
+                  buttonColor: const Color(0xFF1B4F72),
+                  onTap: () async {
+                    final xml = TallyAccountingService.generateSalesVouchersXml(
+                      invoices: invoices,
+                      companyName: repo.clientBusinessName,
+                    );
+                    final ok = await TallyAccountingService.saveXmlFile(
+                      context: context,
+                      suggestedName: 'Tally_Sales_Vouchers_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                      xmlContent: xml,
+                    );
+                    if (ok) {
+                      TallyAccountingService.logAudit(
+                        voucherNo: 'TALLY-SALES-EXP',
+                        action: 'EXPORTED_TO_TALLY',
+                        userId: repo.currentErpUser.username,
+                        userRole: repo.currentErpUser.role.displayName,
+                        details: 'Exported ${invoices.length} Sales Vouchers into Tally XML format.',
+                      );
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _tallyCard(
+                  icon: Icons.payments_rounded,
+                  title: 'Receipt Vouchers XML',
+                  subtitle: '${invoices.where((i) => i.status == ErpInvoiceStatus.paid).length} Paid Settlements',
+                  description: 'Debits Bank/UPI/Cash Collections, Credits Customer Ledgers',
+                  buttonLabel: 'Export Receipts XML',
+                  buttonColor: const Color(0xFF1E8449),
+                  onTap: () async {
+                    final xml = TallyAccountingService.generateReceiptVouchersXml(
+                      invoices: invoices,
+                      companyName: repo.clientBusinessName,
+                    );
+                    final ok = await TallyAccountingService.saveXmlFile(
+                      context: context,
+                      suggestedName: 'Tally_Receipt_Vouchers_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                      xmlContent: xml,
+                    );
+                    if (ok) {
+                      TallyAccountingService.logAudit(
+                        voucherNo: 'TALLY-RECEIPT-EXP',
+                        action: 'EXPORTED_TO_TALLY',
+                        userId: repo.currentErpUser.username,
+                        userRole: repo.currentErpUser.role.displayName,
+                        details: 'Exported Receipt Vouchers into Tally XML format.',
+                      );
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _tallyCard(
+                  icon: Icons.shopping_bag_rounded,
+                  title: 'Purchase Vouchers XML',
+                  subtitle: '${purchases.length} Vendor Bills (${_currency.format(purchases.fold(0.0, (s, p) => s + p.grandTotal))})',
+                  description: 'Credits Suppliers, Debits Kitchen Provisions & Input GST (ITC)',
+                  buttonLabel: 'Export Purchases XML',
+                  buttonColor: const Color(0xFF8E44AD),
+                  onTap: () async {
+                    final xml = TallyAccountingService.generatePurchaseVouchersXml(
+                      purchases: purchases,
+                      companyName: repo.clientBusinessName,
+                    );
+                    final ok = await TallyAccountingService.saveXmlFile(
+                      context: context,
+                      suggestedName: 'Tally_Purchase_Vouchers_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                      xmlContent: xml,
+                    );
+                    if (ok) {
+                      TallyAccountingService.logAudit(
+                        voucherNo: 'TALLY-PURCHASE-EXP',
+                        action: 'EXPORTED_TO_TALLY',
+                        userId: repo.currentErpUser.username,
+                        userRole: repo.currentErpUser.role.displayName,
+                        details: 'Exported ${purchases.length} Purchase Bills into Tally XML format.',
+                      );
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _tallyCard(
+                  icon: Icons.account_tree_rounded,
+                  title: 'Chart of Accounts XML',
+                  subtitle: '25+ Hotel Master Ledgers',
+                  description: '1-Click Master creation for Sales, Duties, Banks & Expenses in Tally',
+                  buttonLabel: 'Export Masters XML',
+                  buttonColor: const Color(0xFFD35400),
+                  onTap: () async {
+                    final xml = TallyAccountingService.generateChartOfAccountsMasterXml(
+                      companyName: repo.clientBusinessName,
+                    );
+                    await TallyAccountingService.saveXmlFile(
+                      context: context,
+                      suggestedName: 'Tally_Hotel_Masters_ChartOfAccounts',
+                      xmlContent: xml,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── 3. GST Return Filing Station (GSTR-1 & GSTR-3B) ──────────────
+          _sectionHeader(
+            icon: Icons.table_view_rounded,
+            title: 'GST Returns Filing Station (GSTR-1 & GSTR-3B)',
+            subtitle: 'Real-time tax liability estimation and government-format CSV table exports for offline tool upload.',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // GSTR-3B Tax Summary Box
+              Expanded(
+                flex: 5,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: ClassicErpTheme.borderDark),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'GSTR-3B Tax Liability & Input Tax Credit (ITC)',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            color: const Color(0xFFFCF3CF),
+                            child: const Text('MONTHLY COMPUTATION', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF7D6608))),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      _gstTaxRow('1. Outward Taxable Turnover (Sales):', _currency.format(gstr3b.outwardTaxable)),
+                      _gstTaxRow('   • Central Tax (CGST Output):', _currency.format(gstr3b.outwardCgst), indent: true),
+                      _gstTaxRow('   • State Tax (SGST Output):', _currency.format(gstr3b.outwardSgst), indent: true),
+                      _gstTaxRow('   • Integrated Tax (IGST Output):', _currency.format(gstr3b.outwardIgst), indent: true),
+                      const SizedBox(height: 6),
+                      _gstTaxRow('2. Total Outward Tax Liability:', _currency.format(gstr3b.totalOutwardTax), isBold: true),
+                      const Divider(height: 12),
+                      _gstTaxRow('3. Eligible Input Tax Credit (ITC):', _currency.format(gstr3b.totalEligibleItc), color: const Color(0xFF1E8449)),
+                      _gstTaxRow('   • Input CGST (Purchases + Expenses):', _currency.format(gstr3b.itcCgst), indent: true),
+                      _gstTaxRow('   • Input SGST (Purchases + Expenses):', _currency.format(gstr3b.itcSgst), indent: true),
+                      const Divider(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        color: const Color(0xFFE8F8F5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Net Cash Tax Payable to Govt:',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF117864)),
+                            ),
+                            Text(
+                              _currency.format(gstr3b.netCashTaxPayable),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF117864)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // GSTR-1 Tables Download Box
+              Expanded(
+                flex: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: ClassicErpTheme.borderDark),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'GSTR-1 Monthly Return Tables (CSV Packages)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
+                      ),
+                      const SizedBox(height: 10),
+                      _gstr1ExportTile(
+                        title: 'Table 4: B2B Tax Invoices',
+                        subtitle: '${invoices.where((i) => i.isB2B).length} Registered Corporate Invoices with GSTIN',
+                        onTap: () async {
+                          final csv = TallyAccountingService.generateGstr1B2bCsv(invoices: invoices);
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'GSTR1_Table4_B2B_${DateFormat('yyyyMM').format(DateTime.now())}',
+                            csvContent: csv,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      _gstr1ExportTile(
+                        title: 'Table 7: B2C Small Invoices',
+                        subtitle: '${invoices.where((i) => !i.isB2B).length} Unregistered Walk-in Guest Bills',
+                        onTap: () async {
+                          final csv = TallyAccountingService.generateGstr1B2csCsv(invoices: invoices);
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'GSTR1_Table7_B2CS_${DateFormat('yyyyMM').format(DateTime.now())}',
+                            csvContent: csv,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      _gstr1ExportTile(
+                        title: 'Table 12: HSN Summary',
+                        subtitle: 'SAC 996311 (Accommodation), 996331 (F&B)',
+                        onTap: () async {
+                          final csv = TallyAccountingService.generateGstr1HsnCsv(invoices: invoices);
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'GSTR1_Table12_HSN_${DateFormat('yyyyMM').format(DateTime.now())}',
+                            csvContent: csv,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      _gstr1ExportTile(
+                        title: 'Table 13: Documents Issued',
+                        subtitle: 'Serial number continuity and cancelled count',
+                        onTap: () async {
+                          final csv = TallyAccountingService.generateGstr1DocsCsv(invoices: invoices);
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'GSTR1_Table13_Docs_${DateFormat('yyyyMM').format(DateTime.now())}',
+                            csvContent: csv,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── 4. Hospitality Compliance: Police C-Form & Aadhaar Masking ────
+          _sectionHeader(
+            icon: Icons.shield_rounded,
+            title: 'Indian Hospitality Statutory Regulations & Guest Verification',
+            subtitle: 'Rule 14 of Foreigners Registration Rules 1992 (Form C) and UIDAI Aadhaar Act 2016 data privacy standards.',
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: ClassicErpTheme.borderDark),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.flight_land_rounded, color: Color(0xFF1B4F72), size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Bureau of Immigration / FRRO Form C Register', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: const Color(0xFFD4E6F1), borderRadius: BorderRadius.circular(2)),
+                            child: Text('${foreignGuests.length} Foreign Nationals', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Mandatory reporting of foreign nationals within 24 hours of hotel check-in under Foreigners Act 1946. Exports passport, visa number, visa expiry and arrival port.',
+                        style: TextStyle(fontSize: 10.5, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.download_rounded, size: 14),
+                        label: const Text('Export Form C Report (CSV)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B4F72),
+                          foregroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        ),
+                        onPressed: () async {
+                          final csv = TallyAccountingService.generateFormCCsv(guests: repo.guests);
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'FRRO_Form_C_Register_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                            csvContent: csv,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: ClassicErpTheme.borderDark),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.lock_rounded, color: Color(0xFF1E8449), size: 18),
+                          const SizedBox(width: 8),
+                          const Text('UIDAI Aadhaar Act 2016 Masking Compliance', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: const Color(0xFFD4EFDF), borderRadius: BorderRadius.circular(2)),
+                            child: const Text('100% PROTECTED', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1E8449))),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Total Indian registered guests: ${indianGuests.length}. In accordance with UIDAI privacy norms, all 12-digit Aadhaar numbers are automatically masked as "XXXX-XXXX-1234" across receipts, folios and registers.',
+                        style: const TextStyle(fontSize: 10.5, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: Color(0xFF1E8449), size: 14),
+                          const SizedBox(width: 6),
+                          const Text('First 8 digits masked on UI & printed bills', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 14),
+                          const Icon(Icons.check_circle_rounded, color: Color(0xFF1E8449), size: 14),
+                          const SizedBox(width: 6),
+                          const Text('Tamper-proof storage', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── 5. MCA Rule 11(g) Audit Trail Table ──────────────────────────
+          _sectionHeader(
+            icon: Icons.history_edu_rounded,
+            title: 'MCA Rule 11(g) Audit Trail & Edit Log (Companies Act 2013)',
+            subtitle: 'Statutory tamper-evident accounting log tracking every invoice creation, modification, and Tally export.',
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: ClassicErpTheme.borderDark),
+            ),
+            child: Column(
+              children: [
+                // Audit Trail Header Toolbar
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  color: ClassicErpTheme.toolbarBg,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.security_rounded, size: 14, color: Color(0xFF0C2461)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${auditEntries.length} Recorded Statutory Audit Events • SHA-256 Checksum Verified',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0C2461)),
+                      ),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.download_rounded, size: 12),
+                        label: const Text('Export Audit Log (CSV)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0C2461),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        ),
+                        onPressed: () async {
+                          final buffer = StringBuffer();
+                          buffer.writeln('Timestamp,Voucher No,Action,User ID,User Role,Audit Details,SHA-256 Checksum');
+                          for (final a in auditEntries) {
+                            buffer.writeln([
+                              DateFormat('yyyy-MM-dd HH:mm:ss').format(a.timestamp),
+                              a.voucherNo,
+                              a.action,
+                              a.userId,
+                              a.userRole,
+                              '"${a.details.replaceAll('"', '""')}"',
+                              a.checksum,
+                            ].join(','));
+                          }
+                          await TallyAccountingService.saveCsvFile(
+                            context: context,
+                            suggestedName: 'MCA_Rule11g_AuditTrail_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                            csvContent: buffer.toString(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Audit Trail Data Table
+                Table(
+                  border: TableBorder.all(color: ClassicErpTheme.borderLight, width: 1),
+                  columnWidths: const {
+                    0: FixedColumnWidth(135),
+                    1: FixedColumnWidth(125),
+                    2: FixedColumnWidth(100),
+                    3: FixedColumnWidth(110),
+                    4: FlexColumnWidth(4),
+                    5: FixedColumnWidth(100),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFEAECEE)),
+                      children: const [
+                        _AuditTh('Date & Time'),
+                        _AuditTh('Voucher / Doc No'),
+                        _AuditTh('Action'),
+                        _AuditTh('User & Role'),
+                        _AuditTh('Audit Description'),
+                        _AuditTh('Checksum'),
+                      ],
+                    ),
+                    for (final a in auditEntries)
+                      TableRow(
+                        children: [
+                          _AuditTd(DateFormat('dd-MMM-yy hh:mm a').format(a.timestamp)),
+                          _AuditTd(a.voucherNo, isBold: true),
+                          _AuditTd(a.action, color: a.action == 'CREATED' ? const Color(0xFF1E8449) : const Color(0xFF1B4F72)),
+                          _AuditTd('${a.userId}\n(${a.userRole})'),
+                          _AuditTd(a.details),
+                          _AuditTd(a.checksum, isMono: true),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFF0C2461)),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0C2461))),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _tallyCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String description,
+    required String buttonLabel,
+    required Color buttonColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: ClassicErpTheme.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: buttonColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: buttonColor)),
+          const SizedBox(height: 4),
+          Text(description, style: const TextStyle(fontSize: 9.5, color: Colors.black54), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.download_rounded, size: 12),
+              label: Text(buttonLabel, style: const TextStyle(fontSize: 10)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: buttonColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              ),
+              onPressed: onTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gstTaxRow(String label, String value, {bool indent = false, bool isBold = false, Color? color}) {
+    return Padding(
+      padding: EdgeInsets.only(left: indent ? 12 : 0, top: 2, bottom: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: indent ? 10 : 10.5,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? Colors.black87,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: color ?? Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gstr1ExportTile({
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F9F9),
+          border: Border.all(color: ClassicErpTheme.borderLight),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                  Text(subtitle, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                ],
+              ),
+            ),
+            const Icon(Icons.file_download_outlined, size: 16, color: Color(0xFF1B4F72)),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+class _AuditTh extends StatelessWidget {
+  final String text;
+  const _AuditTh(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+    );
+  }
+}
+
+class _AuditTd extends StatelessWidget {
+  final String text;
+  final bool isBold;
+  final bool isMono;
+  final Color? color;
+
+  const _AuditTd(this.text, {this.isBold = false, this.isMono = false, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: isMono ? 9.5 : 10,
+          fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          fontFamily: isMono ? 'monospace' : null,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+

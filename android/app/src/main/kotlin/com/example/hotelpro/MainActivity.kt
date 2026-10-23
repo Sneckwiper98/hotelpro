@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -140,8 +141,60 @@ class MainActivity : FlutterActivity() {
                         result.error("INSTALL_ERROR", e.localizedMessage ?: "Unknown installation error", e.stackTraceToString())
                     }
                 }
+                "setSecureScreen" -> {
+                    try {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        activity?.runOnUiThread {
+                            if (enabled) {
+                                activity?.window?.setFlags(
+                                    WindowManager.LayoutParams.FLAG_SECURE,
+                                    WindowManager.LayoutParams.FLAG_SECURE
+                                )
+                            } else {
+                                activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                            }
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SECURE_SCREEN_ERROR", e.localizedMessage, null)
+                    }
+                }
+                "isDeviceRooted" -> {
+                    try {
+                        val isRooted = checkDeviceRootStatus()
+                        result.success(isRooted)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
     }
+
+    private fun checkDeviceRootStatus(): Boolean {
+        try {
+            val buildTags = Build.TAGS
+            if (buildTags != null && buildTags.contains("test-keys")) {
+                return true
+            }
+
+            val paths = arrayOf(
+                "/system/app/Superuser.apk",
+                "/sbin/su",
+                "/system/bin/su",
+                "/system/xbin/su",
+                "/data/local/xbin/su",
+                "/data/local/bin/su",
+                "/system/sd/xbin/su",
+                "/system/bin/failsafe/su",
+                "/data/local/su"
+            )
+            for (path in paths) {
+                if (File(path).exists()) return true
+            }
+        } catch (_: Exception) {}
+        return false
+    }
 }
+

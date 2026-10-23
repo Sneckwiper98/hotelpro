@@ -99,6 +99,12 @@ android {
 
         // AndroidManifest.xml uses ${appName} as android:label
         manifestPlaceholders["appName"] = finalAppName
+
+        // Restrict native ABIs to physical Android hardware (armeabi-v7a & arm64-v8a).
+        // Strips out 25MB+ of x86/x86_64 emulator binaries, cutting APK size drastically.
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+        }
     }
 
     signingConfigs {
@@ -116,6 +122,8 @@ android {
         }
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

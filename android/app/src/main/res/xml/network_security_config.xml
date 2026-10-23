@@ -1,9 +1,20 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!-- HotelPro Hardened Network Security Config -->
-    <base-config cleartextTrafficPermitted="true">
+    <!-- Disallow cleartext HTTP globally for internet traffic to prevent packet sniffing and MITM attacks -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <!-- Strictly permit cleartext HTTP ONLY for local LAN thermal receipt printers and POS loopback -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.0.0</domain>
+        <domain includeSubdomains="true">192.168.0.0</domain>
+        <domain includeSubdomains="true">172.16.0.0</domain>
+    </domain-config>
 </network-security-config>
+

@@ -46,7 +46,7 @@ class AppUpdateInfo {
 class AppUpdateService {
   static const String repoOwner = 'Sneckwiper98';
   static const String repoName = 'hotelpro';
-  static const String baseInstalledVersion = '1.0.16';
+  static const String baseInstalledVersion = '1.0.17';
   static String? _cachedDynamicVersion;
 
   /// Dynamically retrieves current installed version string (e.g. '1.0.11').
@@ -325,7 +325,7 @@ class AppUpdateService {
     }
   }
 
-  /// Downloads file with progress following redirects
+  /// Downloads file with high-speed buffered streaming and throttled UI callbacks to prevent frame drops
   static Future<void> downloadFileWithProgress({
     required String url,
     required File saveFile,
@@ -333,7 +333,8 @@ class AppUpdateService {
   }) async {
     var currentUrl = Uri.parse(url);
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 20);
+    client.connectionTimeout = const Duration(seconds: 15);
+    client.idleTimeout = const Duration(seconds: 30);
 
     HttpClientResponse? response;
     int redirectCount = 0;
@@ -342,6 +343,7 @@ class AppUpdateService {
       final request = await client.getUrl(currentUrl);
       request.headers.set('User-Agent', 'HotelPro-AppUpdater');
       request.headers.set('Accept', 'application/octet-stream');
+      request.headers.set('Connection', 'Keep-Alive');
       response = await request.close();
 
       if (response.statusCode >= 300 && response.statusCode < 400) {
@@ -369,14 +371,30 @@ class AppUpdateService {
     }
 
     final sink = saveFile.openWrite();
+    int lastNotifiedBytes = 0;
+    int lastNotifiedMs = DateTime.now().millisecondsSinceEpoch;
+
+    // Stream download with throttled UI progress to maximize network throughput
     await for (final chunk in response) {
       sink.add(chunk);
       receivedBytes += chunk.length;
-      final progress = totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
-      onProgress(progress, receivedBytes, totalBytes);
+
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      // Notify UI at most every 100ms or when 128KB has arrived, or on completion
+      if (nowMs - lastNotifiedMs >= 100 || (receivedBytes - lastNotifiedBytes) >= 131072 || (totalBytes > 0 && receivedBytes == totalBytes)) {
+        lastNotifiedMs = nowMs;
+        lastNotifiedBytes = receivedBytes;
+        final progress = totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+        onProgress(progress, receivedBytes, totalBytes);
+      }
     }
     await sink.flush();
     await sink.close();
+    client.close();
+
+    // Ensure final 100% notification is delivered
+    final finalProgress = totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 1.0;
+    onProgress(finalProgress, receivedBytes, totalBytes);
   }
 
   static const MethodChannel _installerChannel = MethodChannel('com.isecuresystem.hotelpro/installer');

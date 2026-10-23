@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 enum ErpInvoiceType {
   roomStay('Room Stay Folio', '🏨', Color(0xFF1B4F72)),
   restaurantPos('Restaurant Dining', '🍽️', Color(0xFFD35400)),
-  onlineDelivery('Online Food Delivery', '🛵', Color(0xFF27AE60));
+  onlineDelivery('Online Food Delivery', '🛵', Color(0xFF27AE60)),
+  banquetHall('Banquet & Events', '🎪', Color(0xFF8E44AD));
 
   final String label;
   final String icon;
@@ -34,9 +35,16 @@ class ErpInvoiceRecord {
   final double taxableAmount;
   final double cgst;
   final double sgst;
+  final double igst;
   final double totalAmount;
-  final String paymentMode; // Cash, UPI, Credit Card, Razorpay, Room Bill BTC
+  final String paymentMode; // Cash, UPI, Credit Card, Razorpay, Room Bill BTC, Bank NEFT
   final ErpInvoiceStatus status;
+  final String placeOfSupply; // e.g. '27-Maharashtra', '07-Delhi'
+  final String stateCode; // 2-digit Indian State code e.g. '27'
+  final String supplierGstin; // Hotel's registered GSTIN
+  final bool isReverseCharge; // RCM applicable (default: false)
+  final String? eInvoiceIrn; // 64-char Hash for B2B e-Invoicing
+  final String? eInvoiceQrCode; // Signed QR Payload for B2B e-Invoicing
   final String? referenceId; // Folio id or POS order id
   final List<ErpInvoiceLineItem> items;
 
@@ -51,16 +59,34 @@ class ErpInvoiceRecord {
     required this.taxableAmount,
     required this.cgst,
     required this.sgst,
+    this.igst = 0.0,
     required this.totalAmount,
     required this.paymentMode,
     required this.status,
+    this.placeOfSupply = '27-Maharashtra',
+    this.stateCode = '27',
+    this.supplierGstin = '',
+    this.isReverseCharge = false,
+    this.eInvoiceIrn,
+    this.eInvoiceQrCode,
     this.referenceId,
     this.items = const [],
   });
 
+  bool get isB2B => customerGstin != null && customerGstin!.trim().length == 15;
+  bool get isInterState => igst > 0.0 || (supplierGstin.length >= 2 && customerGstin != null && customerGstin!.length >= 2 && supplierGstin.substring(0, 2) != customerGstin!.substring(0, 2));
+  double get totalGst => cgst + sgst + igst;
+
   ErpInvoiceRecord copyWith({
     ErpInvoiceStatus? status,
     String? paymentMode,
+    double? igst,
+    String? placeOfSupply,
+    String? stateCode,
+    String? supplierGstin,
+    bool? isReverseCharge,
+    String? eInvoiceIrn,
+    String? eInvoiceQrCode,
   }) {
     return ErpInvoiceRecord(
       invoiceNumber: invoiceNumber,
@@ -73,9 +99,16 @@ class ErpInvoiceRecord {
       taxableAmount: taxableAmount,
       cgst: cgst,
       sgst: sgst,
+      igst: igst ?? this.igst,
       totalAmount: totalAmount,
       paymentMode: paymentMode ?? this.paymentMode,
       status: status ?? this.status,
+      placeOfSupply: placeOfSupply ?? this.placeOfSupply,
+      stateCode: stateCode ?? this.stateCode,
+      supplierGstin: supplierGstin ?? this.supplierGstin,
+      isReverseCharge: isReverseCharge ?? this.isReverseCharge,
+      eInvoiceIrn: eInvoiceIrn ?? this.eInvoiceIrn,
+      eInvoiceQrCode: eInvoiceQrCode ?? this.eInvoiceQrCode,
       referenceId: referenceId,
       items: items,
     );

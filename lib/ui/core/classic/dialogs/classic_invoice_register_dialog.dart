@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../config/classic_erp_theme.dart';
 import '../../../../data/models/invoice_model.dart';
 import '../../../../data/repositories/hotel_repository.dart';
+import '../../../../data/services/tally_accounting_service.dart';
 import '../classic_datagrid.dart';
 
 /// Classic Win32 GST Tax Invoices & Multi-Channel Billing Register Dialog
@@ -289,16 +290,15 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                   ),
                   const SizedBox(width: 6),
                   _win32ToolbarButton(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: 'Tally XML',
+                    onTap: () => _showTallyExportDialog(context, invoices, repo),
+                  ),
+                  const SizedBox(width: 6),
+                  _win32ToolbarButton(
                     icon: Icons.table_view_rounded,
-                    label: 'GSTR-1 Excel',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Exported GSTR-1 Tax Invoice Register to Excel / CSV format.'),
-                          backgroundColor: Color(0xFF1E8449),
-                        ),
-                      );
-                    },
+                    label: 'GSTR-1 Returns',
+                    onTap: () => _showGstr1ExportDialog(context, invoices),
                   ),
                 ],
               ),
@@ -482,6 +482,11 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
         bg = const Color(0xFFFCF3CF);
         fg = const Color(0xFF7D6608);
         label = 'FOOD DELIVERY';
+        break;
+      case ErpInvoiceType.banquetHall:
+        bg = const Color(0xFFE8DAEF);
+        fg = const Color(0xFF8E44AD);
+        label = 'BANQUET HALL';
         break;
     }
     return Container(
@@ -677,7 +682,7 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
               ),
               const Divider(thickness: 1.5, height: 20),
 
-              // Billed To / Buyer Info
+              // Billed To / Buyer Info (Indian GST Statutory Requirement)
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -694,6 +699,7 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                           Text('Guest Name: ${invoice.customerName}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           Text('Phone: ${invoice.customerPhone}', style: const TextStyle(fontSize: 10.5)),
                           if (invoice.customerAddress != null) Text('Address: ${invoice.customerAddress}', style: const TextStyle(fontSize: 10)),
+                          Text('Place of Supply (POS): ${invoice.placeOfSupply}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
                         ],
                       ),
                     ),
@@ -701,8 +707,10 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('TAX & PAYMENT REFERENCE:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          const Text('TAX & STATUTORY REFERENCE:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey)),
                           Text('GSTIN: ${invoice.customerGstin ?? "Unregistered (B2C)"}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
+                          Text('Reverse Charge (RCM): ${invoice.isReverseCharge ? "YES" : "NO"}', style: const TextStyle(fontSize: 10)),
+                          Text('Supply Type: ${invoice.isInterState ? "Inter-State (IGST)" : "Intra-State (CGST+SGST)"}', style: const TextStyle(fontSize: 10, color: Color(0xFF7D6608), fontWeight: FontWeight.w600)),
                           Text('Payment Mode: ${invoice.paymentMode}', style: const TextStyle(fontSize: 10.5)),
                           Text('Status: ${invoice.status.name.toUpperCase()}', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: invoice.status == ErpInvoiceStatus.paid ? const Color(0xFF1E8449) : const Color(0xFFC0392B))),
                         ],
@@ -771,13 +779,22 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('CGST: ${_currency.format(invoice.cgst)}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF7D6608))),
-                        Text('SGST: ${_currency.format(invoice.sgst)}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF7D6608))),
-                      ],
-                    ),
+                    if (invoice.isInterState || invoice.igst > 0)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Integrated GST (IGST):', style: const TextStyle(fontSize: 10.5, color: Color(0xFF7D6608))),
+                          Text(_currency.format(invoice.igst > 0 ? invoice.igst : (invoice.cgst + invoice.sgst)), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF7D6608))),
+                        ],
+                      )
+                    else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Central GST (CGST): ${_currency.format(invoice.cgst)}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF7D6608))),
+                          Text('State GST (SGST): ${_currency.format(invoice.sgst)}', style: const TextStyle(fontSize: 10.5, color: Color(0xFF7D6608))),
+                        ],
+                      ),
                     const Divider(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -785,6 +802,14 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                         const Text('Total Invoice Amount (INR):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
                         Text(_currency.format(invoice.totalAmount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Amount in Words: ${TallyAccountingService.numberToIndianWords(invoice.totalAmount)}',
+                        style: const TextStyle(fontSize: 9.5, fontStyle: FontStyle.italic, color: Color(0xFF2C3E50), fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -857,6 +882,228 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Text(text, style: const TextStyle(fontSize: 10), textAlign: align),
+    );
+  }
+
+  void _showTallyExportDialog(BuildContext context, List<ErpInvoiceRecord> invoices, HotelRepository repo) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF1B4F72), size: 20),
+            SizedBox(width: 8),
+            Text('TallyPrime / Tally ERP 9 XML Export', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Generate standard Tally XML files for instant import into Tally via "Import > Vouchers" or "Import > Masters".',
+                style: TextStyle(fontSize: 11, color: Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              _tallyActionTile(
+                icon: Icons.receipt_long_rounded,
+                title: 'Export Sales Vouchers XML',
+                subtitle: '${invoices.length} Invoices • Debits Debtors/Cash, Credits Room/POS Sales & GST Output',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final xml = TallyAccountingService.generateSalesVouchersXml(
+                    invoices: invoices,
+                    companyName: repo.clientBusinessName,
+                  );
+                  await TallyAccountingService.saveXmlFile(
+                    context: context,
+                    suggestedName: 'Tally_Sales_Vouchers_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                    xmlContent: xml,
+                  );
+                  TallyAccountingService.logAudit(
+                    voucherNo: 'BATCH-SALES-XML',
+                    action: 'EXPORTED_TO_TALLY',
+                    userId: repo.currentErpUser.username,
+                    userRole: repo.currentErpUser.role.displayName,
+                    details: 'Exported ${invoices.length} sales vouchers to Tally XML.',
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _tallyActionTile(
+                icon: Icons.payments_rounded,
+                title: 'Export Receipt Vouchers XML',
+                subtitle: '${invoices.where((i) => i.status == ErpInvoiceStatus.paid).length} Paid Settlements • Debits Bank/Cash, Credits Debtors',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final xml = TallyAccountingService.generateReceiptVouchersXml(
+                    invoices: invoices,
+                    companyName: repo.clientBusinessName,
+                  );
+                  await TallyAccountingService.saveXmlFile(
+                    context: context,
+                    suggestedName: 'Tally_Receipt_Vouchers_${DateFormat('yyyyMMdd').format(DateTime.now())}',
+                    xmlContent: xml,
+                  );
+                  TallyAccountingService.logAudit(
+                    voucherNo: 'BATCH-RECEIPT-XML',
+                    action: 'EXPORTED_TO_TALLY',
+                    userId: repo.currentErpUser.username,
+                    userRole: repo.currentErpUser.role.displayName,
+                    details: 'Exported receipt vouchers to Tally XML.',
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _tallyActionTile(
+                icon: Icons.account_tree_rounded,
+                title: 'Export Chart of Accounts Masters XML',
+                subtitle: 'Pre-create all 25+ Hotel Ledgers, GST Duties, Bank A/cs in Tally in 1-Click',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final xml = TallyAccountingService.generateChartOfAccountsMasterXml(
+                    companyName: repo.clientBusinessName,
+                  );
+                  await TallyAccountingService.saveXmlFile(
+                    context: context,
+                    suggestedName: 'Tally_Hotel_Masters_ChartOfAccounts',
+                    xmlContent: xml,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGstr1ExportDialog(BuildContext context, List<ErpInvoiceRecord> invoices) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: const Row(
+          children: [
+            Icon(Icons.table_view_rounded, color: Color(0xFF1E8449), size: 20),
+            SizedBox(width: 8),
+            Text('GSTR-1 Monthly Return Filing Package', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Export government-compliant CSV tables ready for direct upload into the GST Offline Tool or GST Portal.',
+                style: TextStyle(fontSize: 11, color: Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              _tallyActionTile(
+                icon: Icons.business_rounded,
+                title: 'Table 4: B2B Invoices CSV',
+                subtitle: '${invoices.where((i) => i.isB2B).length} Registered Corporate Invoices with GSTIN',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final csv = TallyAccountingService.generateGstr1B2bCsv(invoices: invoices);
+                  await TallyAccountingService.saveCsvFile(
+                    context: context,
+                    suggestedName: 'GSTR1_Table4_B2B_${DateFormat('yyyyMM').format(DateTime.now())}',
+                    csvContent: csv,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _tallyActionTile(
+                icon: Icons.person_rounded,
+                title: 'Table 7: B2C Small Invoices CSV',
+                subtitle: '${invoices.where((i) => !i.isB2B).length} Unregistered Walk-in & Dining Guests',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final csv = TallyAccountingService.generateGstr1B2csCsv(invoices: invoices);
+                  await TallyAccountingService.saveCsvFile(
+                    context: context,
+                    suggestedName: 'GSTR1_Table7_B2CS_${DateFormat('yyyyMM').format(DateTime.now())}',
+                    csvContent: csv,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _tallyActionTile(
+                icon: Icons.category_rounded,
+                title: 'Table 12: HSN Summary CSV',
+                subtitle: 'SAC 996311 (Rooms), 996331 (F&B), 996332 (Banquets)',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final csv = TallyAccountingService.generateGstr1HsnCsv(invoices: invoices);
+                  await TallyAccountingService.saveCsvFile(
+                    context: context,
+                    suggestedName: 'GSTR1_Table12_HSN_${DateFormat('yyyyMM').format(DateTime.now())}',
+                    csvContent: csv,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _tallyActionTile(
+                icon: Icons.description_rounded,
+                title: 'Table 13: Documents Summary CSV',
+                subtitle: 'Total Serial Numbers Issued & Cancelled Invoices',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final csv = TallyAccountingService.generateGstr1DocsCsv(invoices: invoices);
+                  await TallyAccountingService.saveCsvFile(
+                    context: context,
+                    suggestedName: 'GSTR1_Table13_Docs_${DateFormat('yyyyMM').format(DateTime.now())}',
+                    csvContent: csv,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tallyActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFFF8F9F9),
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: ClassicErpTheme.borderLight),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Icon(icon, color: const Color(0xFF1B4F72), size: 20),
+        title: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
+        trailing: const Icon(Icons.download_rounded, size: 16, color: Color(0xFF1B4F72)),
+        onTap: onTap,
+      ),
     );
   }
 

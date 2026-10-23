@@ -333,6 +333,7 @@ enum AppUserRole {
   });
 
   bool hasPermission(String permission) => permissions.contains(permission);
+  String get displayName => label;
 
   static AppUserRole fromCode(String code) {
     return AppUserRole.values.firstWhere(

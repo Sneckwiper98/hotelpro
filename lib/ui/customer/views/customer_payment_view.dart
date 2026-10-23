@@ -4,6 +4,7 @@ import '../../../data/models/customer_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
 import '../../../data/services/razorpay_service.dart';
+import '../../../data/services/security_service.dart';
 
 class CustomerPaymentView extends StatefulWidget {
   final Function(CustomerFoodOrderModel order) onPaymentSuccess;
@@ -23,7 +24,15 @@ class _CustomerPaymentViewState extends State<CustomerPaymentView> {
   String _statusMessage = 'Connecting to Razorpay Gateway...';
 
   @override
+  void initState() {
+    super.initState();
+    // Enable screen capture & recording protection for payment security
+    SecurityService.enableScreenProtection();
+  }
+
+  @override
   void dispose() {
+    SecurityService.disableScreenProtection();
     RazorpayService.instance.dispose();
     super.dispose();
   }
