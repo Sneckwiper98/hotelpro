@@ -78,58 +78,63 @@ class _IvfErpShellState extends State<IvfErpShell> {
               children: [
                 HospitalLogoWidget(logoPathOrUrl: config.logoPathOrUrl, size: 24),
                 const SizedBox(width: 8),
-                Text(
-                  config.hospitalName.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: Colors.white.withValues(alpha: 0.15),
+                Flexible(
+                  flex: 3,
                   child: Text(
-                    config.tagline,
-                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+                    config.hospitalName.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.4,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                // Multi-Branch Switcher Dropdown
-                Container(
-                  height: 24,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    border: Border.all(color: Colors.white38),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: config.branches.any((b) => b.branchId == config.activeBranchId)
-                          ? config.activeBranchId
-                          : (config.branches.isNotEmpty ? config.branches.first.branchId : null),
-                      dropdownColor: IvfErpTheme.primaryNavy,
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
-                      isDense: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
-                      items: config.branches.map((b) => DropdownMenuItem(
-                        value: b.branchId,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.apartment_rounded, color: Colors.white70, size: 13),
-                            const SizedBox(width: 5),
-                            Text('${b.branchName} (${b.branchId})'),
-                          ],
-                        ),
-                      )).toList(),
-                      onChanged: (newBranchId) {
-                        if (newBranchId != null) {
-                          repo.switchBranch(newBranchId);
-                        }
-                      },
+                const SizedBox(width: 8),
+                // Multi-Branch Switcher Dropdown (Bounded width with ellipsis)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220, minWidth: 120),
+                  child: Container(
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      border: Border.all(color: Colors.white38),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: config.branches.any((b) => b.branchId == config.activeBranchId)
+                            ? config.activeBranchId
+                            : (config.branches.isNotEmpty ? config.branches.first.branchId : null),
+                        dropdownColor: IvfErpTheme.primaryNavy,
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+                        isDense: true,
+                        isExpanded: true,
+                        style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                        items: config.branches.map((b) => DropdownMenuItem(
+                          value: b.branchId,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.apartment_rounded, color: Colors.white70, size: 13),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  '${b.branchName} (${b.branchId})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10.5, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )).toList(),
+                        onChanged: (newBranchId) {
+                          if (newBranchId != null) {
+                            repo.switchBranch(newBranchId);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -163,14 +168,15 @@ class _IvfErpShellState extends State<IvfErpShell> {
                     border: Border.all(color: Colors.white24),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Technology Partner: ',
+                        'Partner: ',
                         style: TextStyle(color: Colors.white60, fontSize: 9.5),
                       ),
                       Text(
                         config.technologyPartner,
-                        style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -422,9 +428,13 @@ class _IvfErpShellState extends State<IvfErpShell> {
                 // Hospital Identity
                 const Icon(Icons.business_rounded, size: 13, color: IvfErpTheme.primaryNavy),
                 const SizedBox(width: 4),
-                Text(
-                  config.hospitalName,
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                Flexible(
+                  child: Text(
+                    config.hospitalName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 const Text('|', style: TextStyle(color: Colors.grey)),
@@ -433,9 +443,13 @@ class _IvfErpShellState extends State<IvfErpShell> {
                 // Active Branch
                 const Icon(Icons.apartment_rounded, size: 13, color: IvfErpTheme.primaryNavy),
                 const SizedBox(width: 4),
-                Text(
-                  'Branch: ${config.activeBranch.branchName}',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                Flexible(
+                  child: Text(
+                    'Branch: ${config.activeBranch.branchName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 const Text('|', style: TextStyle(color: Colors.grey)),

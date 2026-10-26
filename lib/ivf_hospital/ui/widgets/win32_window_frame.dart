@@ -92,22 +92,28 @@ class _Win32WindowFrameState extends State<Win32WindowFrame> {
                   Expanded(
                     child: Row(
                       children: [
-                        Text(
-                          widget.title.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
+                        Flexible(
+                          child: Text(
+                            widget.title.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                         if (widget.subtitle != null) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            '• ${widget.subtitle}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 10),
-                            overflow: TextOverflow.ellipsis,
+                          Flexible(
+                            child: Text(
+                              '• ${widget.subtitle}',
+                              style: const TextStyle(color: Colors.white70, fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         ],
                       ],

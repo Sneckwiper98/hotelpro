@@ -26,7 +26,15 @@ class ArtConsentFormsDialog extends StatefulWidget {
 
 class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
   int _selectedFormIndex = 0;
-  String _selectedPatientUhid = 'SRH-P-2026-001';
+  String _selectedPatientUhid = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.repo.patients.isNotEmpty) {
+      _selectedPatientUhid = widget.repo.patients.first.uhid;
+    }
+  }
 
   final List<String> _formTitles = [
     'Form 1: Informed Consent for IVF / ICSI Procedure (Sec 21 ART Act 2021)',
@@ -38,6 +46,14 @@ class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.repo.patients.isEmpty) {
+      return const Win32WindowFrame(
+        title: 'STATUTORY CONSENT FORMS & INDIAN ART ACT 2021',
+        icon: Icons.gavel_rounded,
+        child: Center(child: Text('No patient records found to generate statutory consent form.')),
+      );
+    }
+
     final patient = widget.repo.patients.firstWhere(
       (p) => p.uhid == _selectedPatientUhid,
       orElse: () => widget.repo.patients.first,
@@ -68,7 +84,9 @@ class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
                     decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: _selectedPatientUhid,
+                        value: widget.repo.patients.any((p) => p.uhid == _selectedPatientUhid)
+                            ? _selectedPatientUhid
+                            : (widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null),
                         isDense: true,
                         style: const TextStyle(fontSize: 10.5, color: Colors.black87),
                         items: widget.repo.patients.map((p) {
