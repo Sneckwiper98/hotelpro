@@ -111,4 +111,17 @@ class IvfPatientModel {
 
   factory IvfPatientModel.fromJson(String source) =>
       IvfPatientModel.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  factory IvfPatientModel.empty() {
+    return IvfPatientModel(
+      uhid: 'N/A',
+      femaleName: 'No Patient Selected',
+      femaleAge: 0,
+      femaleBloodGroup: 'O+',
+      phone: '',
+      address: '',
+      clinicalCategory: 'IVF',
+      attendingDoctor: 'Specialist',
+    );
+  }
 }

@@ -32,7 +32,7 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
   int _selectedRow = 0;
 
   void _showNewInvoiceModal() {
-    IvfPatientModel? selectedP = widget.repo.patients.isNotEmpty ? widget.repo.patients.first : null;
+    String? selectedUhid = widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null;
     String category = 'IVF Package';
     final descCtrl = TextEditingController(text: 'All-Inclusive ICSI + Day 5 Blastocyst + FET Package');
     final amountCtrl = TextEditingController(text: '140000');
@@ -70,12 +70,17 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<IvfPatientModel>(
-                          value: selectedP,
+                        child: DropdownButton<String>(
+                          value: widget.repo.patients.any((p) => p.uhid == selectedUhid)
+                              ? selectedUhid
+                              : (widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null),
                           isDense: true,
                           isExpanded: true,
-                          items: widget.repo.patients.map((p) => DropdownMenuItem(value: p, child: Text('${p.uhid} — ${p.femaleName}'))).toList(),
-                          onChanged: (v) => setModalState(() => selectedP = v),
+                          items: widget.repo.patients.map((p) => DropdownMenuItem(
+                            value: p.uhid,
+                            child: Text('${p.uhid} — ${p.femaleName}', overflow: TextOverflow.ellipsis),
+                          )).toList(),
+                          onChanged: (v) => setModalState(() => selectedUhid = v),
                         ),
                       ),
                     ),
@@ -94,7 +99,7 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                                 decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
-                                    value: category,
+                                    value: ['IVF Package', 'Consultation & OPD', 'Diagnostics Lab', 'Pharmacy & Meds', 'OT & Delivery'].contains(category) ? category : 'IVF Package',
                                     isDense: true,
                                     isExpanded: true,
                                     items: const [
@@ -139,7 +144,7 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                                 decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
-                                    value: paymentMode,
+                                    value: ['Cash Counter', 'UPI (PhonePe / Google Pay)', 'Credit / Debit Card (POS)', 'NEFT / RTGS', 'TPA / Insurance Desk'].contains(paymentMode) ? paymentMode : 'UPI (PhonePe / Google Pay)',
                                     isDense: true,
                                     isExpanded: true,
                                     items: const [
@@ -249,12 +254,16 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
                 onPressed: () {
-                  if (selectedP == null) return;
+                  final patient = widget.repo.patients.firstWhere(
+                    (p) => p.uhid == selectedUhid,
+                    orElse: () => widget.repo.patients.isNotEmpty ? widget.repo.patients.first : IvfPatientModel.empty(),
+                  );
+                  if (patient.uhid == 'N/A') return;
                   final invNo = '${widget.repo.config.invoicePrefix}${(widget.repo.invoices.length + 101)}';
                   final inv = IvfBillingModel(
                     invoiceNumber: invNo,
-                    patientUhid: selectedP!.uhid,
-                    patientName: selectedP!.femaleName,
+                    patientUhid: patient.uhid,
+                    patientName: patient.femaleName,
                     category: category,
                     serviceDescription: descCtrl.text.trim(),
                     baseTaxable: total,
@@ -373,7 +382,7 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                               const SizedBox(width: 10),
                               const Text('Category: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               Container(
-                                height: 26,
+                                height: 28,
                                 padding: const EdgeInsets.symmetric(horizontal: 6),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -381,7 +390,7 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
-                                    value: _categoryFilter,
+                                    value: ['ALL', 'IVF Package', 'OPD Consultation', 'Maternity Delivery IPD'].contains(_categoryFilter) ? _categoryFilter : 'ALL',
                                     isDense: true,
                                     style: const TextStyle(fontSize: 11, color: IvfErpTheme.textMain, fontWeight: FontWeight.bold),
                                     items: const [

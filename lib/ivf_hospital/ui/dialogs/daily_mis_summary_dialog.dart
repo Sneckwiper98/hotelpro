@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/hospital_logo_widget.dart';
 import '../widgets/win32_window_frame.dart';
 import 'print_preview_dialog.dart';
 
@@ -56,14 +57,29 @@ class DailyMisSummaryDialog extends StatelessWidget {
               color: const Color(0xFFEBF5FB),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(config.hospitalName.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy)),
-                      Text('National ART Act Reg No: ${config.artClinicRegNumber} | GSTIN: ${config.gstin}', style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
-                    ],
+                  HospitalLogoWidget(
+                    logoPathOrUrl: config.hospitalLogoUrl,
+                    size: 34,
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          config.hospitalName.toUpperCase(),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'National ART Act Reg No: ${config.artClinicRegNumber} | GSTIN: ${config.gstin}',
+                          style: const TextStyle(fontSize: 9.5, color: Colors.black87),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [

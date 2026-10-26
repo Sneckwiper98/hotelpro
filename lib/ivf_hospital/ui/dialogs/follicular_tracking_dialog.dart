@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
-import '../../data/models/ivf_cycle_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
 import '../widgets/win32_window_frame.dart';
 import 'print_preview_dialog.dart';
@@ -24,7 +23,7 @@ class FollicularTrackingDialog extends StatefulWidget {
 }
 
 class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
-  IvfCycleModel? _selectedCycle;
+  String? _selectedCycleId;
 
   // Day-wise scan monitoring logs (Mock pre-seeded serial records)
   final List<Map<String, dynamic>> _scanRows = [
@@ -94,12 +93,17 @@ class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
   void initState() {
     super.initState();
     if (widget.repo.ivfCycles.isNotEmpty) {
-      _selectedCycle = widget.repo.ivfCycles.first;
+      _selectedCycleId = widget.repo.ivfCycles.first.cycleId;
     }
   }
 
   void _printFollicularChart() {
-    final cycle = _selectedCycle;
+    final cycle = widget.repo.ivfCycles.isNotEmpty
+        ? widget.repo.ivfCycles.firstWhere(
+            (c) => c.cycleId == _selectedCycleId,
+            orElse: () => widget.repo.ivfCycles.first,
+          )
+        : null;
     final config = widget.repo.config;
     PrintPreviewDialog.show(
       context: context,
@@ -202,18 +206,23 @@ class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      height: 26,
+                      height: 28,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<IvfCycleModel>(
-                          value: _selectedCycle,
+                        child: DropdownButton<String>(
+                          value: widget.repo.ivfCycles.any((c) => c.cycleId == _selectedCycleId)
+                              ? _selectedCycleId
+                              : (widget.repo.ivfCycles.isNotEmpty ? widget.repo.ivfCycles.first.cycleId : null),
                           isDense: true,
                           isExpanded: true,
                           items: widget.repo.ivfCycles.map((c) {
-                            return DropdownMenuItem(value: c, child: Text('${c.cycleId} — ${c.patientName} (${c.protocol})'));
+                            return DropdownMenuItem(
+                              value: c.cycleId,
+                              child: Text('${c.cycleId} — ${c.patientName} (${c.protocol})', overflow: TextOverflow.ellipsis),
+                            );
                           }).toList(),
-                          onChanged: (v) => setState(() => _selectedCycle = v),
+                          onChanged: (v) => setState(() => _selectedCycleId = v),
                         ),
                       ),
                     ),

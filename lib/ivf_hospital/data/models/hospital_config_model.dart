@@ -172,6 +172,8 @@ class HospitalConfigModel {
     );
   }
 
+  String get hospitalLogoUrl => logoPathOrUrl;
+
   Map<String, dynamic> toMap() {
     return {
       'hospitalName': hospitalName,

@@ -28,7 +28,7 @@ class IvfCycleManagementDialog extends StatefulWidget {
 class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  IvfPatientModel? _selectedPatient;
+  String? _selectedPatientUhid;
   String _cycleType = 'ICSI';
   String _protocol = 'Antagonist Protocol';
   final _stimDaysCtrl = TextEditingController(text: '10');
@@ -84,12 +84,10 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
       _cryoLocCtrl.text = c.cryoStorageLocation;
       _betaHcgCtrl.text = c.betaHcgValue != null ? '${c.betaHcgValue}' : '';
       _cycleOutcome = c.cycleOutcome;
-
-      final pIdx = widget.repo.patients.indexWhere((p) => p.uhid == c.patientUhid);
-      if (pIdx != -1) _selectedPatient = widget.repo.patients[pIdx];
+      _selectedPatientUhid = c.patientUhid;
     } else {
       if (widget.repo.patients.isNotEmpty) {
-        _selectedPatient = widget.repo.patients.first;
+        _selectedPatientUhid = widget.repo.patients.first.uhid;
       }
     }
   }
@@ -118,18 +116,18 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
   }
 
   void _saveCycle() {
-    if (_selectedPatient == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a patient.')));
-      return;
-    }
+    final patient = widget.repo.patients.firstWhere(
+      (p) => p.uhid == _selectedPatientUhid,
+      orElse: () => widget.repo.patients.isNotEmpty ? widget.repo.patients.first : IvfPatientModel.empty(),
+    );
 
     final cycleId = widget.existingCycle?.cycleId ??
         '${widget.repo.config.ivfCyclePrefix}${(widget.repo.ivfCycles.length + 1).toString().padLeft(3, '0')}';
 
     final cycle = IvfCycleModel(
       cycleId: cycleId,
-      patientUhid: _selectedPatient!.uhid,
-      patientName: _selectedPatient!.femaleName,
+      patientUhid: patient.uhid,
+      patientName: patient.femaleName,
       cycleType: _cycleType,
       protocol: _protocol,
       startDate: widget.existingCycle?.startDate ?? DateTime.now(),
@@ -153,7 +151,7 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
       cryoStorageLocation: _cryoLocCtrl.text.trim(),
       betaHcgValue: double.tryParse(_betaHcgCtrl.text),
       cycleOutcome: _cycleOutcome,
-      attendingDoctor: _selectedPatient!.attendingDoctor,
+      attendingDoctor: patient.attendingDoctor,
       attendingEmbryologist: 'Dr. Rajesh Patel (Chief Embryologist)',
     );
 
@@ -173,7 +171,10 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
   }
 
   void _printCycleSummary() {
-    final patient = _selectedPatient;
+    final patient = widget.repo.patients.firstWhere(
+      (p) => p.uhid == _selectedPatientUhid,
+      orElse: () => widget.repo.patients.isNotEmpty ? widget.repo.patients.first : IvfPatientModel.empty(),
+    );
     final config = widget.repo.config;
     final cycleId = widget.existingCycle?.cycleId ?? 'NEW-CYCLE';
 
@@ -199,8 +200,8 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PATIENT: ${patient?.femaleName.toUpperCase() ?? "PATIENT"} (${patient?.femaleAge ?? "-"}Y / ${patient?.femaleBloodGroup ?? "-"})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                      Text('UHID: ${patient?.uhid ?? "N/A"}  |  HUSBAND: ${patient?.malePartnerName ?? "Husband"}', style: const TextStyle(fontSize: 10)),
+                      Text('PATIENT: ${patient.femaleName.toUpperCase()} (${patient.femaleAge}Y / ${patient.femaleBloodGroup})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Text('UHID: ${patient.uhid}  |  HUSBAND: ${patient.malePartnerName ?? "Husband"}', style: const TextStyle(fontSize: 10)),
                       Text('CYCLE TYPE: $_cycleType  |  PROTOCOL: $_protocol', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD))),
                     ],
                   ),
@@ -270,25 +271,30 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      height: 26,
+                      height: 28,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(color: IvfErpTheme.borderDark),
                       ),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<IvfPatientModel>(
-                          value: _selectedPatient,
+                        child: DropdownButton<String>(
+                          value: widget.repo.patients.any((p) => p.uhid == _selectedPatientUhid)
+                              ? _selectedPatientUhid
+                              : (widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null),
                           isDense: true,
                           isExpanded: true,
                           style: const TextStyle(fontSize: 11, color: IvfErpTheme.textMain, fontWeight: FontWeight.bold),
                           items: widget.repo.patients.map((p) {
                             return DropdownMenuItem(
-                              value: p,
-                              child: Text('${p.uhid} — ${p.femaleName} (Partner: ${p.malePartnerName ?? "N/A"})'),
+                              value: p.uhid,
+                              child: Text(
+                                '${p.uhid} — ${p.femaleName} (Partner: ${p.malePartnerName ?? "N/A"})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
-                          onChanged: (v) => setState(() => _selectedPatient = v),
+                          onChanged: (v) => setState(() => _selectedPatientUhid = v),
                         ),
                       ),
                     ),
@@ -560,7 +566,7 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
         const SizedBox(height: 2),
         Container(
           width: width,
-          height: 26,
+          height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -568,7 +574,7 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: items.contains(value) ? value : (items.isNotEmpty ? items.first : null),
               isDense: true,
               isExpanded: true,
               style: const TextStyle(fontSize: 10.5, color: IvfErpTheme.textMain, fontWeight: FontWeight.w600),

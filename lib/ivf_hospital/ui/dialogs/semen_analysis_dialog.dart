@@ -24,7 +24,7 @@ class SemenAnalysisDialog extends StatefulWidget {
 }
 
 class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
-  IvfPatientModel? _selectedPatient;
+  String? _selectedPatientUhid;
 
   final _abstinenceCtrl = TextEditingController(text: '3');
   final _liquefactionCtrl = TextEditingController(text: '25');
@@ -46,7 +46,7 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
   void initState() {
     super.initState();
     if (widget.repo.patients.isNotEmpty) {
-      _selectedPatient = widget.repo.patients.first;
+      _selectedPatientUhid = widget.repo.patients.first.uhid;
     }
   }
 
@@ -86,21 +86,26 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      height: 26,
+                      height: 28,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(color: Colors.white, border: Border.all(color: IvfErpTheme.borderDark)),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<IvfPatientModel>(
-                          value: _selectedPatient,
+                        child: DropdownButton<String>(
+                          value: widget.repo.patients.any((p) => p.uhid == _selectedPatientUhid)
+                              ? _selectedPatientUhid
+                              : (widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null),
                           isDense: true,
                           isExpanded: true,
                           items: widget.repo.patients.map((p) {
                             return DropdownMenuItem(
-                              value: p,
-                              child: Text('${p.uhid} — Husband: ${p.malePartnerName ?? "N/A"} (Wife: ${p.femaleName})'),
+                              value: p.uhid,
+                              child: Text(
+                                '${p.uhid} — Husband: ${p.malePartnerName ?? "N/A"} (Wife: ${p.femaleName})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
-                          onChanged: (v) => setState(() => _selectedPatient = v),
+                          onChanged: (v) => setState(() => _selectedPatientUhid = v),
                         ),
                       ),
                     ),
@@ -229,9 +234,12 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
   }
 
   void _openPrintPreview() {
-    final patient = _selectedPatient ?? (widget.repo.patients.isNotEmpty ? widget.repo.patients.first : null);
-    final patientName = patient != null ? '${patient.femaleName} & ${patient.malePartnerName ?? "Husband"}' : 'Walk-in Couple';
-    final uhid = patient?.uhid ?? 'SRH-P-OPD';
+    final patient = widget.repo.patients.firstWhere(
+      (p) => p.uhid == _selectedPatientUhid,
+      orElse: () => widget.repo.patients.isNotEmpty ? widget.repo.patients.first : IvfPatientModel.empty(),
+    );
+    final patientName = '${patient.femaleName} & ${patient.malePartnerName ?? "Husband"}';
+    final uhid = patient.uhid;
 
     PrintPreviewDialog.show(
       context: context,
@@ -261,8 +269,8 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Primary Indication: ${patient?.infertilityType ?? "Infertility Workup"}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
-                      Text('Attending Specialist: ${patient?.attendingDoctor ?? "Dr. Sunita Rao, MD"}', style: const TextStyle(fontSize: 10)),
+                      Text('Primary Indication: ${patient.infertilityType}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                      Text('Attending Specialist: ${patient.attendingDoctor}', style: const TextStyle(fontSize: 10)),
                     ],
                   ),
                 ),
@@ -388,7 +396,7 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
         Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Container(
-          height: maxLines == 1 ? 26 : null,
+          height: maxLines == 1 ? 28 : null,
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: IvfErpTheme.borderDark),
@@ -396,7 +404,7 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
           child: TextField(
             controller: ctrl,
             maxLines: maxLines,
-            style: const TextStyle(fontSize: 10.5),
+            style: const TextStyle(fontSize: 11),
             decoration: const InputDecoration(
               border: InputBorder.none,
               isDense: true,
@@ -415,7 +423,7 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
         Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Container(
-          height: 26,
+          height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -423,10 +431,10 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: items.contains(value) ? value : (items.isNotEmpty ? items.first : null),
               isDense: true,
               isExpanded: true,
-              style: const TextStyle(fontSize: 10, color: IvfErpTheme.textMain, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 10.5, color: IvfErpTheme.textMain, fontWeight: FontWeight.w600),
               items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: onChanged,
             ),

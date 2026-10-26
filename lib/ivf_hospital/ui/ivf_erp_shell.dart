@@ -35,6 +35,7 @@ class IvfErpShell extends StatefulWidget {
 class _IvfErpShellState extends State<IvfErpShell> {
   int _activeViewIndex = 0; // 0: Patients, 1: IVF Cycles, 2: Maternity, 3: Billing
   String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
   late Timer _clockTimer;
   DateTime _currentTime = DateTime.now();
 
@@ -49,6 +50,7 @@ class _IvfErpShellState extends State<IvfErpShell> {
   @override
   void dispose() {
     _clockTimer.cancel();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -359,14 +361,24 @@ class _IvfErpShellState extends State<IvfErpShell> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
-                _viewTab(0, 'Patients & Couples (${repo.patients.length})', Icons.people_alt_rounded),
-                const SizedBox(width: 4),
-                _viewTab(1, 'IVF Cycles (${repo.ivfCycles.length})', Icons.biotech_rounded),
-                const SizedBox(width: 4),
-                _viewTab(2, 'Maternity & Deliveries (${repo.maternityCases.length})', Icons.child_friendly_rounded),
-                const SizedBox(width: 4),
-                _viewTab(3, 'Hospital Invoices (${repo.invoices.length})', Icons.receipt_rounded),
-                const Spacer(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _viewTab(0, 'Patients & Couples (${repo.patients.length})', Icons.people_alt_rounded),
+                        const SizedBox(width: 4),
+                        _viewTab(1, 'IVF Cycles (${repo.ivfCycles.length})', Icons.biotech_rounded),
+                        const SizedBox(width: 4),
+                        _viewTab(2, 'Maternity & Deliveries (${repo.maternityCases.length})', Icons.child_friendly_rounded),
+                        const SizedBox(width: 4),
+                        _viewTab(3, 'Hospital Invoices (${repo.invoices.length})', Icons.receipt_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // Search Input Box
                 Container(
                   width: 220,
@@ -383,6 +395,7 @@ class _IvfErpShellState extends State<IvfErpShell> {
                       ),
                       Expanded(
                         child: TextField(
+                          controller: _searchCtrl,
                           style: const TextStyle(fontSize: 10.5),
                           decoration: const InputDecoration(
                             hintText: 'Quick Search records...',
@@ -394,6 +407,17 @@ class _IvfErpShellState extends State<IvfErpShell> {
                           onChanged: (val) => setState(() => _searchQuery = val.trim()),
                         ),
                       ),
+                      if (_searchQuery.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(Icons.clear, size: 12, color: Colors.grey),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -559,7 +583,25 @@ class _IvfErpShellState extends State<IvfErpShell> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: list.isEmpty
+              ? _buildEmptyState(
+                  icon: _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.people_outline_rounded,
+                  title: _searchQuery.isNotEmpty ? 'No Matching Patients Found' : 'No Patients or Couples Registered',
+                  description: _searchQuery.isNotEmpty
+                      ? 'No registered couple or patient records match "$_searchQuery".'
+                      : 'Enroll the first patient or couple profile to start clinical IVF tracking.',
+                  actionLabel: _searchQuery.isNotEmpty ? 'Clear Search Query' : '+ Register New Patient & Couple',
+                  onAction: () {
+                    if (_searchQuery.isNotEmpty) {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    } else {
+                      PatientRegistrationDialog.show(context, repo);
+                    }
+                  },
+                  isSearchResult: _searchQuery.isNotEmpty,
+                )
+              : ListView.builder(
             itemCount: list.length,
             itemBuilder: (context, idx) {
               final p = list[idx];
@@ -618,7 +660,15 @@ class _IvfErpShellState extends State<IvfErpShell> {
 
   // --- Grid 2: IVF Cycles ---
   Widget _buildIvfCyclesGrid(IvfHospitalRepository repo) {
-    final list = repo.ivfCycles;
+    final list = repo.ivfCycles.where((c) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return c.cycleId.toLowerCase().contains(q) ||
+          c.patientName.toLowerCase().contains(q) ||
+          c.cycleType.toLowerCase().contains(q) ||
+          c.protocol.toLowerCase().contains(q) ||
+          c.cycleOutcome.toLowerCase().contains(q);
+    }).toList();
 
     return Column(
       children: [
@@ -640,7 +690,25 @@ class _IvfErpShellState extends State<IvfErpShell> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: list.isEmpty
+              ? _buildEmptyState(
+                  icon: _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.biotech_rounded,
+                  title: _searchQuery.isNotEmpty ? 'No Matching IVF Cycles Found' : 'No Active IVF Treatment Cycles',
+                  description: _searchQuery.isNotEmpty
+                      ? 'No IVF treatment cycles match "$_searchQuery".'
+                      : 'Initiate ovarian stimulation or ICSI cycle for an enrolled patient.',
+                  actionLabel: _searchQuery.isNotEmpty ? 'Clear Search Query' : '+ Start New IVF Cycle',
+                  onAction: () {
+                    if (_searchQuery.isNotEmpty) {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    } else {
+                      IvfCycleManagementDialog.show(context, repo);
+                    }
+                  },
+                  isSearchResult: _searchQuery.isNotEmpty,
+                )
+              : ListView.builder(
             itemCount: list.length,
             itemBuilder: (context, idx) {
               final c = list[idx];
@@ -688,7 +756,15 @@ class _IvfErpShellState extends State<IvfErpShell> {
 
   // --- Grid 3: Maternity & Deliveries ---
   Widget _buildMaternityGrid(IvfHospitalRepository repo) {
-    final list = repo.maternityCases;
+    final list = repo.maternityCases.where((m) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return m.caseId.toLowerCase().contains(q) ||
+          m.patientName.toLowerCase().contains(q) ||
+          m.deliveryType.toLowerCase().contains(q) ||
+          m.highRiskCondition.toLowerCase().contains(q) ||
+          m.caseStatus.toLowerCase().contains(q);
+    }).toList();
     final df = DateFormat('dd-MMM-yyyy');
 
     return Column(
@@ -711,7 +787,25 @@ class _IvfErpShellState extends State<IvfErpShell> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: list.isEmpty
+              ? _buildEmptyState(
+                  icon: _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.child_friendly_rounded,
+                  title: _searchQuery.isNotEmpty ? 'No Matching Maternity Cases Found' : 'No Maternity or Delivery Records',
+                  description: _searchQuery.isNotEmpty
+                      ? 'No delivery records match the search term "$_searchQuery".'
+                      : 'Record an antenatal admission, labour room delivery, or newborn birth.',
+                  actionLabel: _searchQuery.isNotEmpty ? 'Clear Search Query' : '+ Register Delivery Case',
+                  onAction: () {
+                    if (_searchQuery.isNotEmpty) {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    } else {
+                      MaternityDeliveryDialog.show(context, repo);
+                    }
+                  },
+                  isSearchResult: _searchQuery.isNotEmpty,
+                )
+              : ListView.builder(
             itemCount: list.length,
             itemBuilder: (context, idx) {
               final m = list[idx];
@@ -750,7 +844,15 @@ class _IvfErpShellState extends State<IvfErpShell> {
 
   // --- Grid 4: Invoices ---
   Widget _buildBillingGrid(IvfHospitalRepository repo) {
-    final list = repo.invoices;
+    final list = repo.invoices.where((inv) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return inv.invoiceNumber.toLowerCase().contains(q) ||
+          inv.patientName.toLowerCase().contains(q) ||
+          inv.serviceDescription.toLowerCase().contains(q) ||
+          inv.status.toLowerCase().contains(q) ||
+          inv.paymentMode.toLowerCase().contains(q);
+    }).toList();
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
     return Column(
@@ -771,7 +873,25 @@ class _IvfErpShellState extends State<IvfErpShell> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: list.isEmpty
+              ? _buildEmptyState(
+                  icon: _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.receipt_long_rounded,
+                  title: _searchQuery.isNotEmpty ? 'No Matching Invoices Found' : 'No Billing Invoices Generated',
+                  description: _searchQuery.isNotEmpty
+                      ? 'No hospital invoices match the search term "$_searchQuery".'
+                      : 'Create comprehensive IVF package invoices or OPD consultation receipts.',
+                  actionLabel: _searchQuery.isNotEmpty ? 'Clear Search Query' : '+ Generate New Invoice',
+                  onAction: () {
+                    if (_searchQuery.isNotEmpty) {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = '');
+                    } else {
+                      IvfBillingInvoiceDialog.show(context, repo);
+                    }
+                  },
+                  isSearchResult: _searchQuery.isNotEmpty,
+                )
+              : ListView.builder(
             itemCount: list.length,
             itemBuilder: (context, idx) {
               final inv = list[idx];
@@ -830,6 +950,69 @@ class _IvfErpShellState extends State<IvfErpShell> {
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? IvfErpTheme.primaryNavy : IvfErpTheme.textMain,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String description,
+    required String actionLabel,
+    required VoidCallback onAction,
+    bool isSearchResult = false,
+  }) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          border: Border.all(color: IvfErpTheme.borderDark),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: IvfErpTheme.primaryNavy.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 28, color: IvfErpTheme.primaryNavy),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(fontSize: 10.5, color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: Icon(isSearchResult ? Icons.clear_all_rounded : Icons.add_rounded, size: 14),
+              label: Text(actionLabel),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: IvfErpTheme.primaryNavy,
+                foregroundColor: Colors.white,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              ),
+              onPressed: onAction,
             ),
           ],
         ),

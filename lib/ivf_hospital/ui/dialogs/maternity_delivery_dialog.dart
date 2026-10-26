@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/models/maternity_case_model.dart';
-import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
 import '../widgets/win32_window_frame.dart';
 import 'print_preview_dialog.dart';
@@ -26,7 +25,7 @@ class MaternityDeliveryDialog extends StatefulWidget {
 
 class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-  IvfPatientModel? _selectedPatient;
+  String? _selectedPatientUhid;
 
   final _gravidaCtrl = TextEditingController(text: '2');
   final _paraCtrl = TextEditingController(text: '1');
@@ -52,10 +51,11 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
     if (widget.repo.patients.isNotEmpty) {
-      _selectedPatient = widget.repo.patients.firstWhere(
+      final mat = widget.repo.patients.firstWhere(
         (p) => p.clinicalCategory == 'MATERNITY',
         orElse: () => widget.repo.patients.first,
       );
+      _selectedPatientUhid = mat.uhid;
     }
   }
 
@@ -73,7 +73,13 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
   }
 
   void _saveMaternityCase() {
-    if (_selectedPatient == null) return;
+    final patient = widget.repo.patients.isNotEmpty
+        ? widget.repo.patients.firstWhere(
+            (p) => p.uhid == _selectedPatientUhid,
+            orElse: () => widget.repo.patients.first,
+          )
+        : null;
+    if (patient == null) return;
 
     final caseId = 'MAT-2026-${(widget.repo.maternityCases.length + 81).toString().padLeft(3, '0')}';
     final lmp = DateTime.now().subtract(const Duration(days: 275));
@@ -81,8 +87,8 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
 
     final mCase = MaternityCaseModel(
       caseId: caseId,
-      patientUhid: _selectedPatient!.uhid,
-      patientName: _selectedPatient!.femaleName,
+      patientUhid: patient.uhid,
+      patientName: patient.femaleName,
       lmp: lmp,
       edd: edd,
       gravida: int.tryParse(_gravidaCtrl.text) ?? 1,
@@ -118,7 +124,12 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
   }
 
   void _printBirthSummary() {
-    final patient = _selectedPatient;
+    final patient = widget.repo.patients.isNotEmpty
+        ? widget.repo.patients.firstWhere(
+            (p) => p.uhid == _selectedPatientUhid,
+            orElse: () => widget.repo.patients.first,
+          )
+        : null;
     final config = widget.repo.config;
 
     PrintPreviewDialog.show(
@@ -213,25 +224,30 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      height: 26,
+                      height: 28,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(color: IvfErpTheme.borderDark),
                       ),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<IvfPatientModel>(
-                          value: _selectedPatient,
+                        child: DropdownButton<String>(
+                          value: widget.repo.patients.any((p) => p.uhid == _selectedPatientUhid)
+                              ? _selectedPatientUhid
+                              : (widget.repo.patients.isNotEmpty ? widget.repo.patients.first.uhid : null),
                           isDense: true,
                           isExpanded: true,
                           style: const TextStyle(fontSize: 11, color: IvfErpTheme.textMain, fontWeight: FontWeight.bold),
                           items: widget.repo.patients.map((p) {
                             return DropdownMenuItem(
-                              value: p,
-                              child: Text('${p.uhid} — ${p.femaleName} (Age: ${p.femaleAge}, ${p.femaleBloodGroup})'),
+                              value: p.uhid,
+                              child: Text(
+                                '${p.uhid} — ${p.femaleName} (Age: ${p.femaleAge}, ${p.femaleBloodGroup})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
-                          onChanged: (v) => setState(() => _selectedPatient = v),
+                          onChanged: (v) => setState(() => _selectedPatientUhid = v),
                         ),
                       ),
                     ),
@@ -490,7 +506,7 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
         Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Container(
-          height: 26,
+          height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -498,7 +514,7 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: items.contains(value) ? value : (items.isNotEmpty ? items.first : null),
               isDense: true,
               isExpanded: true,
               style: const TextStyle(fontSize: 10.5, color: IvfErpTheme.textMain, fontWeight: FontWeight.w600),

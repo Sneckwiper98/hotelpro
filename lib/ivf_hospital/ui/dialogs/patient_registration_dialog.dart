@@ -333,7 +333,7 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
         Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Container(
-          height: maxLines == 1 ? 26 : null,
+          height: maxLines == 1 ? 28 : null,
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: IvfErpTheme.borderDark),
@@ -362,7 +362,7 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
         Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Container(
-          height: 26,
+          height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -370,7 +370,7 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: value,
+              value: items.contains(value) ? value : (items.isNotEmpty ? items.first : null),
               isDense: true,
               isExpanded: true,
               style: const TextStyle(fontSize: 10.5, color: IvfErpTheme.textMain, fontWeight: FontWeight.w600),
