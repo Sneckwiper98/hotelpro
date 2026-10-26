@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Diagnostics, Hormone Pathology & Semen Analysis Dialog
 class DiagnosticsLabDialog extends StatelessWidget {
@@ -16,46 +18,75 @@ class DiagnosticsLabDialog extends StatelessWidget {
     );
   }
 
+  void _printLabRegister(BuildContext context) {
+    final tests = repo.labInvestigations;
+    final config = repo.config;
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'PATHOLOGY & ENDOCRINE LABORATORY TEST REGISTER',
+      documentSubtitle: 'Hormone Assays, Serology & Biochemical Analysis Report',
+      documentNumber: 'LAB-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total Investigations: ${tests.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                Text('Pathologist: Dr. Sunita Deshmukh, MD Path', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF003366))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF003366),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Text('Order ID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Patient / UHID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Test Name', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Measured Result', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Status', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ...tests.map((t) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text(t.orderId, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('${t.patientName}\n(${t.patientUhid})', style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 4, child: Text(t.testName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('${t.resultValue} ${t.unit}', style: const TextStyle(fontSize: 9.5, color: Color(0xFF27AE60), fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text(t.status, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(780.0, 960.0);
-    final dialogHeight = (screen.height * 0.88).clamp(500.0, 650.0);
-
     final tests = repo.labInvestigations;
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.biotech_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Laboratory & Diagnostic Pathology Register — ${repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'LABORATORY & DIAGNOSTIC PATHOLOGY REGISTER',
+      subtitle: '${repo.config.hospitalName} • ${repo.config.activeBranch.branchName}',
+      icon: Icons.biotech_rounded,
+      defaultWidth: 980,
+      defaultHeight: 660,
+      child: Column(
+        children: [
 
             // Data Table
             Expanded(
@@ -123,6 +154,17 @@ class DiagnosticsLabDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Diagnostic Register (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: () => _printLabRegister(context),
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -133,7 +175,6 @@ class DiagnosticsLabDialog extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

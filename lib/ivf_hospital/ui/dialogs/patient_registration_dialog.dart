@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// New Patient & Couple Registration Dialog
 class PatientRegistrationDialog extends StatefulWidget {
@@ -103,44 +105,72 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
     );
   }
 
+  void _printRegistrationCard(String uhid) {
+    final config = widget.repo.config;
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'PATIENT UHID REGISTRATION CARD & OPD SLIP',
+      documentSubtitle: 'Official Electronic Medical Record Identifier Slip',
+      documentNumber: 'UHID-$uhid',
+      initialPaperFormat: 'A5',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              border: Border.all(color: const Color(0xFF003366), width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('NAME: ${_femaleNameCtrl.text.toUpperCase()} (${_femaleAgeCtrl.text}Y / $_femaleBlood)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF003366))),
+                      const SizedBox(height: 3),
+                      Text('HUSBAND / PARTNER: ${_maleNameCtrl.text.isNotEmpty ? _maleNameCtrl.text : "N/A"} (${_maleAgeCtrl.text}Y / $_maleBlood)', style: const TextStyle(fontSize: 10)),
+                      Text('PRIMARY PHONE: ${_phoneCtrl.text}', style: const TextStyle(fontSize: 10)),
+                      Text('ADDRESS: ${_addressCtrl.text}', style: const TextStyle(fontSize: 9.5)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  color: const Color(0xFFEBF5FB),
+                  child: Column(
+                    children: [
+                      const Text('UNIQUE HEALTH ID', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+                      Text(uhid, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0, color: Color(0xFF003366))),
+                      Text('CAT: $_category', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF27AE60))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('Consulting Specialist: $_doctor', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+          Text('Clinical Infertility / Case Type: $_infertilityType (${_yearsOfMarriageCtrl.text} Years Married)', style: const TextStyle(fontSize: 9.5)),
+          const SizedBox(height: 15),
+          const Text('Please bring this UHID card for all future OPD consultations, sonography scans, embryology lab tests and pharmacy billing.', style: TextStyle(fontSize: 9, fontStyle: FontStyle.italic)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(700.0, 880.0);
-    final dialogHeight = (screen.height * 0.88).clamp(500.0, 640.0);
-
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.person_add_alt_1_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'New Patient & Couple Registration — IVFPro Win32 ERP',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'NEW PATIENT & COUPLE REGISTRATION',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.person_add_alt_1_rounded,
+      defaultWidth: 920,
+      defaultHeight: 660,
+      child: Column(
+        children: [
 
             // Form Body
             Expanded(
@@ -256,6 +286,17 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Preview UHID Card (A5)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.ivfPurple,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: () => _printRegistrationCard('REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
                     icon: const Icon(Icons.person_add_rounded, size: 14),
                     label: const Text('Register Patient & Create UHID'),
                     style: ElevatedButton.styleFrom(
@@ -270,7 +311,6 @@ class _PatientRegistrationDialogState extends State<PatientRegistrationDialog> {
             ),
           ],
         ),
-      ),
     );
   }
 

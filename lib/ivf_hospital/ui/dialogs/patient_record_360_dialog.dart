@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Central Patient 360 Comprehensive Medical Record Dialog
 /// Complete longitudinal patient record covering Gynecology, Infertility, IVF, Maternity & Billing
@@ -59,11 +61,86 @@ class _PatientRecord360DialogState extends State<PatientRecord360Dialog> with Si
     super.dispose();
   }
 
+  void _printCaseFile() {
+    final p = widget.patient;
+    final config = widget.repo.config;
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'PATIENT COMPREHENSIVE MEDICAL CASE SUMMARY',
+      documentSubtitle: 'Confidential Electronic Health Record (EHR) • Form 360',
+      documentNumber: 'MR-${p.uhid}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FA),
+              border: Border.all(color: const Color(0xFFCCCCCC)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PATIENT: ${p.femaleName.toUpperCase()} (${p.femaleAge} Yrs / ${p.femaleBloodGroup})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Text('UHID: ${p.uhid}  |  PHONE: ${p.femalePhone}', style: const TextStyle(fontSize: 10)),
+                      Text('HUSBAND: ${p.malePartnerName ?? "N/A"} (${p.maleAge ?? "-"} Yrs)', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('CATEGORY: ${p.clinicalCategory}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+                    Text('STATUS: ${p.cycleStatus}', style: const TextStyle(fontSize: 9.5, color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
+                    Text('DATE: ${_df.format(DateTime.now())}', style: const TextStyle(fontSize: 9.5)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('CLINICAL VITALS & PRIMARY DIAGNOSIS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Text('Vitals: BP: ${_bpCtrl.text} mmHg | Pulse: ${_pulseCtrl.text} bpm | Wt: ${_weightCtrl.text} kg | Ht: ${_heightCtrl.text} cm', style: const TextStyle(fontSize: 10)),
+          const SizedBox(height: 4),
+          Text('Complaints: ${_complaintsCtrl.text}', style: const TextStyle(fontSize: 10)),
+          const SizedBox(height: 4),
+          Text('Provisional / Final Diagnosis: ${_diagnosisCtrl.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+          const SizedBox(height: 10),
+          const Text('PRESCRIBED MEDICATIONS & REGIMEN (Rx)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF4F6F7),
+            child: Text(_rxCtrl.text, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
+          ),
+          const SizedBox(height: 8),
+          Text('Physician Advice & Plan: ${_adviceCtrl.text}', style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic)),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Consulting Gynecologist / Embryologist:\n${config.activeBranch.doctorInCharge}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+              const Column(
+                children: [
+                  SizedBox(height: 24),
+                  Text('Authorized Signatory & Seal', style: TextStyle(fontSize: 9, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.94).clamp(840.0, 1150.0);
-    final dialogHeight = (screen.height * 0.92).clamp(540.0, 720.0);
     final p = widget.patient;
 
     // Filter patient-specific records
@@ -72,38 +149,14 @@ class _PatientRecord360DialogState extends State<PatientRecord360Dialog> with Si
     final labs = widget.repo.labInvestigations.where((l) => l.patientUhid == p.uhid).toList();
     final bills = widget.repo.invoices.where((b) => b.patientUhid == p.uhid).toList();
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // ── 1. Top Win32 Title Bar ──────────────────────────────
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.folder_shared_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Central Patient 360 Medical Record — ${p.uhid} : ${p.femaleName} & ${p.malePartnerName ?? "Husband"}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'CENTRAL PATIENT 360 MEDICAL RECORD — ${p.uhid}',
+      subtitle: '${p.femaleName} & ${p.malePartnerName ?? "Husband"} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.folder_shared_rounded,
+      defaultWidth: 1050,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // ── 2. Patient Master Summary Header ────────────────────
             Container(
@@ -417,6 +470,17 @@ class _PatientRecord360DialogState extends State<PatientRecord360Dialog> with Si
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print 360 Case File (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printCaseFile,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -427,7 +491,6 @@ class _PatientRecord360DialogState extends State<PatientRecord360Dialog> with Si
             ),
           ],
         ),
-      ),
     );
   }
 

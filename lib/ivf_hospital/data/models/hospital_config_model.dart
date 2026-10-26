@@ -1,11 +1,63 @@
 import 'dart:convert';
 
+/// Hospital Branch Model for Multi-Branch IVF & Maternity Groups
+class HospitalBranchModel {
+  final String branchId;
+  final String branchName;
+  final String address;
+  final String city;
+  final String phone;
+  final String inChargeDoctor;
+  final String artClinicRegNumber;
+  final bool isMainBranch;
+
+  HospitalBranchModel({
+    required this.branchId,
+    required this.branchName,
+    required this.address,
+    required this.city,
+    required this.phone,
+    required this.inChargeDoctor,
+    required this.artClinicRegNumber,
+    this.isMainBranch = false,
+  });
+
+  String get doctorInCharge => inChargeDoctor;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'branchId': branchId,
+      'branchName': branchName,
+      'address': address,
+      'city': city,
+      'phone': phone,
+      'inChargeDoctor': inChargeDoctor,
+      'artClinicRegNumber': artClinicRegNumber,
+      'isMainBranch': isMainBranch,
+    };
+  }
+
+  factory HospitalBranchModel.fromMap(Map<String, dynamic> map) {
+    return HospitalBranchModel(
+      branchId: map['branchId'] ?? 'BR-01',
+      branchName: map['branchName'] ?? 'Main Hospital & IVF Center',
+      address: map['address'] ?? '',
+      city: map['city'] ?? '',
+      phone: map['phone'] ?? '',
+      inChargeDoctor: map['inChargeDoctor'] ?? 'Dr. Sunita Rao, MD',
+      artClinicRegNumber: map['artClinicRegNumber'] ?? '',
+      isMainBranch: map['isMainBranch'] ?? false,
+    );
+  }
+}
+
 /// Whitelabel Configuration Model for IVFPro 360 Enterprise
-/// Enables selling this software to any IVF / Maternity Hospital
+/// Enables selling this software to any IVF / Maternity Hospital with Multi-Branch & Custom Logo
 class HospitalConfigModel {
   String hospitalName;
   String tagline;
   String technologyPartner;
+  String logoPathOrUrl; // Custom Logo URL, Path, or Preset
   String address;
   String city;
   String state;
@@ -17,7 +69,7 @@ class HospitalConfigModel {
   String website;
   String gstin;
   String pan;
-  String artClinicRegNumber; // ART Act 2021 Registration No
+  String artClinicRegNumber; // National ART Act 2021 Registration No
   String clinicalEstRegNumber;
   String currencySymbol;
   String invoicePrefix;
@@ -29,10 +81,15 @@ class HospitalConfigModel {
   String licenseKey;
   String licenseStatus; // 'ACTIVE', 'TRIAL', 'EXPIRED'
 
+  // Multi-Branch Architecture
+  String activeBranchId;
+  List<HospitalBranchModel> branches;
+
   HospitalConfigModel({
     this.hospitalName = 'Shri Radhakrishna Hospital & Infertility Centre',
     this.tagline = 'Gynecology • Infertility • IVF • Maternity',
     this.technologyPartner = 'iSecure System Pvt. Ltd.',
+    this.logoPathOrUrl = 'preset:fertility_lotus', // Default built-in medical IVF emblem
     this.address = 'Station Road, Opp. Civil Hospital',
     this.city = 'Nagpur',
     this.state = 'Maharashtra',
@@ -55,13 +112,54 @@ class HospitalConfigModel {
     this.isCloudSyncEnabled = false,
     this.licenseKey = 'ISECURE-IVFPRO-ENT-2026-COMMERCIAL',
     this.licenseStatus = 'ACTIVE',
-  });
+    this.activeBranchId = 'BR-01',
+    List<HospitalBranchModel>? branches,
+  }) : branches = branches ?? [
+          HospitalBranchModel(
+            branchId: 'BR-01',
+            branchName: 'Central Nagpur Main Campus & IVF Center',
+            address: 'Station Road, Opp. Civil Hospital',
+            city: 'Nagpur',
+            phone: '+91 712 2554433',
+            inChargeDoctor: 'Dr. Sunita Rao, MD (OBGYN, IVF Specialist)',
+            artClinicRegNumber: 'ART/MH/NAG/2024/0089',
+            isMainBranch: true,
+          ),
+          HospitalBranchModel(
+            branchId: 'BR-02',
+            branchName: 'Dharampeth Satellite Clinic & DayCare',
+            address: 'Plot 42, West High Court Road, Dharampeth',
+            city: 'Nagpur',
+            phone: '+91 712 2598811',
+            inChargeDoctor: 'Dr. Rajesh Deshmukh, MS (OBGYN)',
+            artClinicRegNumber: 'ART/MH/NAG/2024/0089-B2',
+            isMainBranch: false,
+          ),
+          HospitalBranchModel(
+            branchId: 'BR-03',
+            branchName: 'Wardha Road Fertility Care Branch',
+            address: 'Near Metro Pillar 118, Somalwada, Wardha Road',
+            city: 'Nagpur',
+            phone: '+91 712 2671122',
+            inChargeDoctor: 'Dr. Anjali Mehta, DNB, ART Specialist',
+            artClinicRegNumber: 'ART/MH/NAG/2024/0089-B3',
+            isMainBranch: false,
+          ),
+        ];
+
+  HospitalBranchModel get activeBranch {
+    return branches.firstWhere(
+      (b) => b.branchId == activeBranchId,
+      orElse: () => branches.first,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
       'hospitalName': hospitalName,
       'tagline': tagline,
       'technologyPartner': technologyPartner,
+      'logoPathOrUrl': logoPathOrUrl,
       'address': address,
       'city': city,
       'state': state,
@@ -84,6 +182,8 @@ class HospitalConfigModel {
       'isCloudSyncEnabled': isCloudSyncEnabled,
       'licenseKey': licenseKey,
       'licenseStatus': licenseStatus,
+      'activeBranchId': activeBranchId,
+      'branches': branches.map((b) => b.toMap()).toList(),
     };
   }
 
@@ -92,6 +192,7 @@ class HospitalConfigModel {
       hospitalName: map['hospitalName'] ?? 'Shri Radhakrishna Hospital & Infertility Centre',
       tagline: map['tagline'] ?? 'Gynecology • Infertility • IVF • Maternity',
       technologyPartner: map['technologyPartner'] ?? 'iSecure System Pvt. Ltd.',
+      logoPathOrUrl: map['logoPathOrUrl'] ?? 'preset:fertility_lotus',
       address: map['address'] ?? '',
       city: map['city'] ?? '',
       state: map['state'] ?? '',
@@ -114,6 +215,10 @@ class HospitalConfigModel {
       isCloudSyncEnabled: map['isCloudSyncEnabled'] ?? false,
       licenseKey: map['licenseKey'] ?? '',
       licenseStatus: map['licenseStatus'] ?? 'ACTIVE',
+      activeBranchId: map['activeBranchId'] ?? 'BR-01',
+      branches: map['branches'] != null
+          ? (map['branches'] as List).map((b) => HospitalBranchModel.fromMap(b as Map<String, dynamic>)).toList()
+          : null,
     );
   }
 

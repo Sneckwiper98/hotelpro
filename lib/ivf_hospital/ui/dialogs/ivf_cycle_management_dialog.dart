@@ -3,6 +3,8 @@ import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_cycle_model.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Specialized IVF & ART Cycle Management Dialog (Stimulation, OPU, Embryology, ET, Outcome)
 class IvfCycleManagementDialog extends StatefulWidget {
@@ -170,46 +172,93 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
     );
   }
 
+  void _printCycleSummary() {
+    final patient = _selectedPatient;
+    final config = widget.repo.config;
+    final cycleId = widget.existingCycle?.cycleId ?? 'NEW-CYCLE';
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'IVF & EMBRYOLOGY LAB TREATMENT SUMMARY',
+      documentSubtitle: 'Ovarian Stimulation, Oocyte Retrieval, Blastocyst Culture & ET Log',
+      documentNumber: 'CYC-$cycleId',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              border: Border.all(color: const Color(0xFFCCCCCC)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PATIENT: ${patient?.femaleName.toUpperCase() ?? "PATIENT"} (${patient?.femaleAge ?? "-"}Y / ${patient?.femaleBloodGroup ?? "-"})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Text('UHID: ${patient?.uhid ?? "N/A"}  |  HUSBAND: ${patient?.malePartnerName ?? "Husband"}', style: const TextStyle(fontSize: 10)),
+                      Text('CYCLE TYPE: $_cycleType  |  PROTOCOL: $_protocol', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E44AD))),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('OUTCOME: $_cycleOutcome', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF27AE60))),
+                    Text('BETA HCG: ${_betaHcgCtrl.text.isNotEmpty ? "${_betaHcgCtrl.text} mIU/mL" : "Pending"}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                    Text('EMBRYOLOGIST: Dr. Rajesh Patel', style: const TextStyle(fontSize: 9.5)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('1. STIMULATION & FOLLICULAR RECOVERY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Text('Stimulation Duration: ${_stimDaysCtrl.text} Days  |  Medications: ${_stimMedsCtrl.text}', style: const TextStyle(fontSize: 9.5)),
+          Text('Right Ovary Follicles: ${_rightFolliclesCtrl.text}  |  Left Ovary Follicles: ${_leftFolliclesCtrl.text}', style: const TextStyle(fontSize: 9.5)),
+          Text('Endometrial Thickness: ${_endoMmCtrl.text} mm', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          const Text('2. OOCYTE PICKUP (OPU) & SPERM PREPARATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Text('Total Oocytes Retrieved: ${_totalOocytesCtrl.text}  |  Mature M-II: ${_m2Ctrl.text}  |  M-I: ${_m1Ctrl.text}  |  GV: ${_gvCtrl.text}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+          Text('Sperm Source / Quality: $_semenType', style: const TextStyle(fontSize: 9.5)),
+          const SizedBox(height: 10),
+          const Text('3. EMBRYOLOGY, BLASTOCYST CULTURE & VITRIFICATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Text('Fertilization (2PN Confirmed): ${_fert2pnCtrl.text}  |  Day 3 Cleavage Embryos: ${_day3Ctrl.text}', style: const TextStyle(fontSize: 9.5)),
+          Text('Day 5 Blastocysts Formed: ${_day5BlastCtrl.text}  |  Grading: ${_blastGradingCtrl.text}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+          Text('Embryos Transferred: ${_transferredCountCtrl.text} ($_transferType)', style: const TextStyle(fontSize: 9.5)),
+          Text('Embryos Vitrified / Frozen: ${_frozenCountCtrl.text}  |  Location: ${_cryoLocCtrl.text}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72))),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Doctor In-charge:\n${config.activeBranch.doctorInCharge}', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+              const Text('Chief Embryologist:\nDr. Rajesh Patel, M.Sc., Ph.D.', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.92).clamp(780.0, 960.0);
-    final dialogHeight = (screen.height * 0.90).clamp(520.0, 680.0);
-
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.ivfPurple,
-              child: Row(
-                children: [
-                  const Icon(Icons.biotech_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.existingCycle != null
-                        ? 'Edit IVF Treatment Cycle — ${widget.existingCycle!.cycleId}'
-                        : 'New IVF / ART Treatment Cycle Management',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: widget.existingCycle != null
+          ? 'EDIT IVF TREATMENT CYCLE — ${widget.existingCycle!.cycleId}'
+          : 'NEW IVF / ART TREATMENT CYCLE MANAGEMENT',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.biotech_rounded,
+      defaultWidth: 1050,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // Top Patient Selector Header
             Container(
@@ -429,6 +478,17 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Embryology & Cycle Summary (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printCycleSummary,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel'),
@@ -449,7 +509,6 @@ class _IvfCycleManagementDialogState extends State<IvfCycleManagementDialog> wit
             ),
           ],
         ),
-      ),
     );
   }
 

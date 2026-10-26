@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Indian ART Act 2021 & PCPNDT Statutory Consent Forms & Legal Undertakings
 /// Compliant with National Assisted Reproductive Technology & Surrogacy Act 2021
@@ -43,41 +45,15 @@ class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
     final config = widget.repo.config;
     final nowFormatted = DateFormat('dd-MMMM-yyyy').format(DateTime.now());
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      backgroundColor: IvfErpTheme.windowBg,
-      child: Container(
-        width: 1000,
-        height: 650,
-        decoration: BoxDecoration(
-          border: Border.all(color: IvfErpTheme.borderDark, width: 1.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top Bar
-            Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.gavel_rounded, color: Colors.white, size: 16),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'STATUTORY CONSENT FORMS & INDIAN ART ACT 2021 COMPLIANCE (PDF Sec 49, 57-61)',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold, letterSpacing: 0.3),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white, size: 16),
-                    splashRadius: 14,
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'STATUTORY CONSENT FORMS & INDIAN ART ACT 2021',
+      subtitle: '${config.hospitalName} • ${config.activeBranch.branchName}',
+      icon: Icons.gavel_rounded,
+      defaultWidth: 1000,
+      defaultHeight: 650,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
 
             // Patient Selector & Quick Controls
             Container(
@@ -314,14 +290,7 @@ class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
                   ),
                   const Spacer(),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Statutory Legal Consent Form sent to printer / PDF exporter for ${patient.uhid}!'),
-                          backgroundColor: IvfErpTheme.medicalEmerald,
-                        ),
-                      );
-                    },
+                    onPressed: () => _openConsentPrintPreview(patient, config),
                     icon: const Icon(Icons.print_rounded, size: 14),
                     label: const Text('Print Statutory Form', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
@@ -346,6 +315,61 @@ class _ArtConsentFormsDialogState extends State<ArtConsentFormsDialog> {
             ),
           ],
         ),
+    );
+  }
+
+  void _openConsentPrintPreview(dynamic patient, dynamic config) {
+    final formTitle = _formTitles[_selectedFormIndex];
+    PrintPreviewDialog.show(
+      context: context,
+      config: widget.repo.config,
+      documentTitle: 'INDIAN ART REGULATION ACT 2021 STATUTORY UNDERTAKING',
+      documentSubtitle: formTitle,
+      documentNumber: 'ART-FORM-${_selectedFormIndex + 1}-${patient.uhid}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF9FAFB),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Female Patient: ${patient.femaleName} (${patient.femaleAge}y / ${patient.femaleBloodGroup})', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      Text('Male Partner: ${patient.malePartnerName ?? "N/A"} (${patient.maleAge ?? 0}y)', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('UHID: ${patient.uhid}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      Text('Specialist: ${patient.attendingDoctor}', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(6),
+            color: const Color(0xFFEBF5FB),
+            child: Text(
+              formTitle.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildFormBodyContent(_selectedFormIndex, patient, config),
+        ],
       ),
     );
   }

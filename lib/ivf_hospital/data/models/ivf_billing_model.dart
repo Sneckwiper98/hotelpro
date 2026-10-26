@@ -35,6 +35,9 @@ class IvfBillingModel {
   })  : balanceDue = balanceDue ?? (totalAmount - paidAmount),
         invoiceDate = invoiceDate ?? DateTime.now();
 
+  double get taxableAmount => baseTaxable;
+  double get totalGst => cgstAmount + sgstAmount;
+
   Map<String, dynamic> toMap() {
     return {
       'invoiceNumber': invoiceNumber,

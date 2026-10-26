@@ -50,6 +50,9 @@ class IvfPatientModel {
     this.status = 'Active Treatment',
   }) : registrationDate = registrationDate ?? DateTime.now();
 
+  String get femalePhone => phone;
+  String get cycleStatus => status;
+
   Map<String, dynamic> toMap() {
     return {
       'uhid': uhid,

@@ -3,6 +3,8 @@ import '../../config/ivf_erp_theme.dart';
 import '../../data/models/maternity_case_model.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Maternity, Labour, Delivery & Newborn Management Dialog
 class MaternityDeliveryDialog extends StatefulWidget {
@@ -115,44 +117,91 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
     );
   }
 
+  void _printBirthSummary() {
+    final patient = _selectedPatient;
+    final config = widget.repo.config;
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'CERTIFICATE OF BIRTH & LABOUR DELIVERY SUMMARY',
+      documentSubtitle: 'Statutory Birth Notification & Neonatal Discharge Summary',
+      documentNumber: 'BIRTH-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCE4EC),
+              border: Border.all(color: const Color(0xFFF48FB1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('MOTHER: ${patient?.femaleName.toUpperCase() ?? "MOTHER"} (${patient?.femaleAge ?? "-"}Y / ${patient?.femaleBloodGroup ?? "-"})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Text('UHID: ${patient?.uhid ?? "N/A"}  |  FATHER: ${patient?.malePartnerName ?? "Father"}', style: const TextStyle(fontSize: 10)),
+                      Text('OBSTETRIC HISTORY: Gravida ${_gravidaCtrl.text}, Para ${_paraCtrl.text}', style: const TextStyle(fontSize: 9.5)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('MODE: $_deliveryType', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFFD81B60))),
+                    Text('WARD/BED: $_wardBed', style: const TextStyle(fontSize: 9.5)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('NEWBORN / NEONATAL CLINICAL PARAMETERS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF9FAFB),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(children: [const Text('BABY GENDER', style: TextStyle(fontSize: 9, color: Colors.grey)), Text(_babyGender.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFFD81B60)))]),
+                Column(children: [const Text('BIRTH WEIGHT', style: TextStyle(fontSize: 9, color: Colors.grey)), Text('${_birthWeightCtrl.text} Kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))]),
+                Column(children: [const Text('APGAR 1 MIN', style: TextStyle(fontSize: 9, color: Colors.grey)), Text('${_apgar1Ctrl.text}/10', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF27AE60)))]),
+                Column(children: [const Text('APGAR 5 MIN', style: TextStyle(fontSize: 9, color: Colors.grey)), Text('${_apgar5Ctrl.text}/10', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF27AE60)))]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text('BIRTH IMMUNIZATION ADMINISTERED', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF003366))),
+          const Divider(thickness: 1, height: 8),
+          Text('• BCG: ${_bcg ? "Given at Birth" : "Pending"}   • OPV Zero: ${_opv0 ? "Given at Birth" : "Pending"}   • Hepatitis-B (Birth Dose): ${_hepb ? "Given at Birth" : "Pending"}', style: const TextStyle(fontSize: 9.5)),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Consultant Obstetrician:\n$_doctor', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+              Text('Consultant Neonatologist:\n$_pediatrician', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(760.0, 920.0);
-    final dialogHeight = (screen.height * 0.88).clamp(520.0, 660.0);
-
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.pinkMaternity,
-              child: Row(
-                children: [
-                  const Icon(Icons.pregnant_woman_rounded, size: 16, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Maternity, Labour Room & Newborn Care — IVFPro Win32 ERP',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'MATERNITY, LABOUR ROOM & NEWBORN CARE',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.pregnant_woman_rounded,
+      defaultWidth: 1020,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // Patient Selector
             Container(
@@ -360,6 +409,17 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Birth Notification & Delivery Report (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printBirthSummary,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel'),
@@ -380,7 +440,6 @@ class _MaternityDeliveryDialogState extends State<MaternityDeliveryDialog> with 
             ),
           ],
         ),
-      ),
     );
   }
 

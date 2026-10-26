@@ -475,4 +475,10 @@ class IvfHospitalRepository extends ChangeNotifier {
     await SupabaseService.instance.saveConfig(newConfig);
     notifyListeners();
   }
+
+  Future<void> switchBranch(String branchId) async {
+    _config.activeBranchId = branchId;
+    await SupabaseService.instance.saveConfig(_config);
+    notifyListeners();
+  }
 }

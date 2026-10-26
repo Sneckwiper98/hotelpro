@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Inpatient (IPD) Bed & Ward Occupancy Matrix Dialog
 class BedWardMatrixDialog extends StatefulWidget {
@@ -21,48 +23,81 @@ class BedWardMatrixDialog extends StatefulWidget {
 }
 
 class _BedWardMatrixDialogState extends State<BedWardMatrixDialog> {
+  void _printBedCensus() {
+    final beds = widget.repo.beds;
+    final occupied = beds.where((b) => b.isOccupied).length;
+    final available = beds.length - occupied;
+    final config = widget.repo.config;
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'INPATIENT (IPD) WARD & BED OCCUPANCY CENSUS',
+      documentSubtitle: 'Daily Inpatient Midnight / Current Census Report',
+      documentNumber: 'BED-CENSUS-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Text('Total Beds: ${beds.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                Text('Occupied: $occupied', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFFC0392B))),
+                Text('Available Vacant: $available', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF27AE60))),
+                Text('Occupancy Rate: ${((occupied / (beds.isEmpty ? 1 : beds.length)) * 100).toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF003366))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF003366),
+            child: const Row(
+              children: [
+                Expanded(flex: 2, child: Text('Bed No.', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Ward / Category', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Current Patient / UHID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Status', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Daily Tariff', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ...beds.map((b) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text(b.bedNumber, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text(b.wardName, style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 4, child: Text(b.isOccupied ? '${b.patientName ?? "Patient"}\n(UHID: ${b.patientUhid ?? "N/A"})' : '— Vacant —', style: TextStyle(fontSize: 9, fontStyle: b.isOccupied ? FontStyle.normal : FontStyle.italic))),
+                Expanded(flex: 3, child: Text(b.isOccupied ? 'OCCUPIED' : 'AVAILABLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: b.isOccupied ? const Color(0xFFC0392B) : const Color(0xFF27AE60)))),
+                Expanded(flex: 2, child: Text('₹${b.dailyCharges.toStringAsFixed(0)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.5))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(780.0, 960.0);
-    final dialogHeight = (screen.height * 0.88).clamp(500.0, 660.0);
-
     final beds = widget.repo.beds;
     final occupiedCount = beds.where((b) => b.isOccupied).length;
     final availableCount = beds.length - occupiedCount;
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Win32 Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.hotel_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Hospital Inpatient (IPD) Wards & Bed Occupancy Matrix — ${widget.repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'HOSPITAL INPATIENT (IPD) WARDS & BED OCCUPANCY MATRIX',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.hotel_rounded,
+      defaultWidth: 980,
+      defaultHeight: 660,
+      child: Column(
+        children: [
 
             // Top Occupancy Metrics
             Container(
@@ -181,6 +216,17 @@ class _BedWardMatrixDialogState extends State<BedWardMatrixDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Bed Census Summary (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printBedCensus,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -191,7 +237,6 @@ class _BedWardMatrixDialogState extends State<BedWardMatrixDialog> {
             ),
           ],
         ),
-      ),
     );
   }
 

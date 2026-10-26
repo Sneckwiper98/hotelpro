@@ -4,6 +4,8 @@ import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_billing_model.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Hospital Billing, IVF Package & GST Invoice Register Dialog
 class IvfBillingInvoiceDialog extends StatefulWidget {
@@ -279,10 +281,6 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.94).clamp(840.0, 1100.0);
-    final dialogHeight = (screen.height * 0.90).clamp(520.0, 700.0);
-
     double totalInvoiced = 0.0;
     double totalCollected = 0.0;
     double totalDue = 0.0;
@@ -304,43 +302,18 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
       totalDue += i.balanceDue;
     }
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Win32 Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Hospital Billing, IVF Packages & Daily Collection Register — ${widget.repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-
-            // Top Summary Cards
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: const Color(0xFFEBF5FB),
+    return Win32WindowFrame(
+      title: 'HOSPITAL BILLING, IVF PACKAGES & GST INVOICES',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.receipt_long_rounded,
+      defaultWidth: 1040,
+      defaultHeight: 650,
+      child: Column(
+        children: [
+          // Top Summary Cards
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
               child: Row(
                 children: [
                   _metricCard('Gross Invoiced Value', _currency.format(totalInvoiced), Icons.receipt_rounded, IvfErpTheme.primaryNavy),
@@ -441,14 +414,29 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
                               ),
                               const SizedBox(width: 6),
                               OutlinedButton.icon(
-                                icon: const Icon(Icons.print_rounded, size: 13),
-                                label: const Text('Print 80mm Receipt'),
+                                icon: const Icon(Icons.receipt_rounded, size: 13),
+                                label: const Text('Print 80mm POS Slip'),
                                 style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                                 onPressed: () {
                                   if (filtered.isNotEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Printing 80mm thermal receipt for ${filtered[_selectedRow].invoiceNumber}...')),
-                                    );
+                                    final idx = _selectedRow.clamp(0, filtered.length - 1);
+                                    _openPrintPreview(filtered[idx], is80mm: true);
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 6),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.print_rounded, size: 13),
+                                label: const Text('Print A4 Tax Invoice'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: IvfErpTheme.primaryNavy,
+                                  foregroundColor: Colors.white,
+                                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                                ),
+                                onPressed: () {
+                                  if (filtered.isNotEmpty) {
+                                    final idx = _selectedRow.clamp(0, filtered.length - 1);
+                                    _openPrintPreview(filtered[idx], is80mm: false);
                                   }
                                 },
                               ),
@@ -558,6 +546,116 @@ class _IvfBillingInvoiceDialogState extends State<IvfBillingInvoiceDialog> {
             ),
           ],
         ),
+    );
+  }
+
+  void _openPrintPreview(IvfBillingModel inv, {required bool is80mm}) {
+    PrintPreviewDialog.show(
+      context: context,
+      config: widget.repo.config,
+      documentTitle: is80mm ? 'CASH RECEIPT / POS SLIP' : 'TAX INVOICE / BILL OF SUPPLY',
+      documentSubtitle: inv.category,
+      documentNumber: inv.invoiceNumber,
+      initialPaperFormat: is80mm ? '80MM' : 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF9FAFB),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Patient: ${inv.patientName}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text('UHID: ${inv.patientUhid}', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('Payment Mode: ${inv.paymentMode}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      Text('Status: ${inv.status}', style: const TextStyle(fontSize: 10, color: IvfErpTheme.medicalEmerald, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(4),
+              1: FlexColumnWidth(1.5),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.8),
+            },
+            children: [
+              const TableRow(
+                decoration: BoxDecoration(color: Color(0xFFEBF5FB)),
+                children: [
+                  Padding(padding: EdgeInsets.all(6), child: Text('Service Description', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                  Padding(padding: EdgeInsets.all(6), child: Text('Rate (₹)', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                  Padding(padding: EdgeInsets.all(6), child: Text('GST (₹)', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                  Padding(padding: EdgeInsets.all(6), child: Text('Total (₹)', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                ],
+              ),
+              TableRow(
+                children: [
+                  Padding(padding: const EdgeInsets.all(6), child: Text(inv.serviceDescription, style: const TextStyle(fontSize: 10))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(_currency.format(inv.taxableAmount), textAlign: TextAlign.right, style: const TextStyle(fontSize: 10))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(_currency.format(inv.totalGst), textAlign: TextAlign.right, style: const TextStyle(fontSize: 10))),
+                  Padding(padding: const EdgeInsets.all(6), child: Text(_currency.format(inv.totalAmount), textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(
+                width: 260,
+                padding: const EdgeInsets.all(8),
+                color: const Color(0xFFF4F6F6),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Invoiced Amount:', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                        Text(_currency.format(inv.totalAmount), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const Divider(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Amount Paid / Deposited:', style: TextStyle(fontSize: 10.5, color: IvfErpTheme.medicalEmerald, fontWeight: FontWeight.bold)),
+                        Text(_currency.format(inv.paidAmount), style: const TextStyle(fontSize: 11, color: IvfErpTheme.medicalEmerald, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if (inv.balanceDue > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Balance Due Pending:', style: TextStyle(fontSize: 10.5, color: IvfErpTheme.alertRuby, fontWeight: FontWeight.bold)),
+                          Text(_currency.format(inv.balanceDue), style: const TextStyle(fontSize: 11, color: IvfErpTheme.alertRuby, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

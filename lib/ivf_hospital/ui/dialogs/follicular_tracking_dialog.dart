@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_cycle_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Follicular Monitoring Ultrasound (USG) & Stimulation Day-by-Day Sheet Dialog
 class FollicularTrackingDialog extends StatefulWidget {
@@ -96,44 +98,99 @@ class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
     }
   }
 
+  void _printFollicularChart() {
+    final cycle = _selectedCycle;
+    final config = widget.repo.config;
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'FOLLICULAR ULTRASOUND MONITORING & STIMULATION SHEET',
+      documentSubtitle: 'Serial Ovarian Response & Endometrial Receptivity Chart',
+      documentNumber: cycle != null ? 'CYC-${cycle.cycleId}' : 'SCAN-RECORD',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              border: Border.all(color: const Color(0xFFCCCCCC)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PATIENT: ${cycle?.patientName.toUpperCase() ?? "TEST PATIENT"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      Text('CYCLE ID: ${cycle?.cycleId ?? "N/A"}  |  PROTOCOL: ${cycle?.protocol ?? "Antagonist Protocol"}', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('OPU PLANNED: ${cycle?.opuDate != null ? cycle!.opuDate.toString().split(' ')[0] : "TBD"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF8E44AD))),
+                    Text('IN-CHARGE: ${config.activeBranch.doctorInCharge}', style: const TextStyle(fontSize: 9.5)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF4A148C),
+            child: const Row(
+              children: [
+                Expanded(flex: 2, child: Text('Day / Date', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Right Ovary Follicles', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Left Ovary Follicles', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Endometrium', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('E2 (pg/mL)', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Stimulation Dosage', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ..._scanRows.map((r) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text('${r['day']}\n${r['date']}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text(r['rightOvary'], style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 3, child: Text(r['leftOvary'], style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text('${r['endoMm']}\n${r['endoPattern']}', style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text(r['e2'], style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text(r['dose'], style: const TextStyle(fontSize: 9))),
+              ],
+            ),
+          )),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFFCF3CF),
+            child: const Text(
+              'CLINICAL ADVICE & TRIGGER DECISION:\nLead cohort >18mm reached. Trigger with Inj Ovitrelle 250mcg. Egg retrieval (OPU) strict 35 hours post-trigger. Patient fasting strictly from midnight.',
+              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF7D6608)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.94).clamp(860.0, 1160.0);
-    final dialogHeight = (screen.height * 0.90).clamp(520.0, 700.0);
-
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Win32 Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.ivfPurple,
-              child: Row(
-                children: [
-                  const Icon(Icons.show_chart_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Follicular Monitoring Ultrasound (USG) & Serial Stimulation Sheet — IVFPro Win32 ERP',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'FOLLICULAR MONITORING ULTRASOUND (USG) & SERIAL STIMULATION SHEET',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.show_chart_rounded,
+      defaultWidth: 1050,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // Cycle Selector
             Container(
@@ -261,6 +318,17 @@ class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Follicular Tracking Chart (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.ivfPurple,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printFollicularChart,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -271,7 +339,6 @@ class _FollicularTrackingDialogState extends State<FollicularTrackingDialog> {
             ),
           ],
         ),
-      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/models/ivf_patient_model.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// WHO 6th Edition Semen Analysis & Andrology Laboratory Report Dialog
 class SemenAnalysisDialog extends StatefulWidget {
@@ -65,42 +67,14 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(780.0, 960.0);
-    final dialogHeight = (screen.height * 0.90).clamp(520.0, 680.0);
-
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Win32 Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.biotech_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'WHO 6th Edition Semen Analysis & Andrology Lab Report — ${widget.repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'WHO 6TH EDITION SEMEN ANALYSIS & ANDROLOGY LAB',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.biotech_rounded,
+      defaultWidth: 960,
+      defaultHeight: 650,
+      child: Column(
+        children: [
 
             // Patient Selector
             Container(
@@ -244,22 +218,154 @@ class _SemenAnalysisDialogState extends State<SemenAnalysisDialog> {
                       foregroundColor: Colors.white,
                       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Semen Analysis report saved & linked to patient record!'),
-                          backgroundColor: IvfErpTheme.medicalEmerald,
-                        ),
-                      );
-                    },
+                    onPressed: _openPrintPreview,
                   ),
                 ],
               ),
             ),
           ],
         ),
+    );
+  }
+
+  void _openPrintPreview() {
+    final patient = _selectedPatient ?? (widget.repo.patients.isNotEmpty ? widget.repo.patients.first : null);
+    final patientName = patient != null ? '${patient.femaleName} & ${patient.malePartnerName ?? "Husband"}' : 'Walk-in Couple';
+    final uhid = patient?.uhid ?? 'SRH-P-OPD';
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: widget.repo.config,
+      documentTitle: 'ANDROLOGY LABORATORY REPORT — SEMEN ANALYSIS',
+      documentSubtitle: 'Standardized according to WHO Laboratory Manual 6th Edition (2021)',
+      documentNumber: 'SA-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF9FAFB),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Couple / Patient: $patientName', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text('UHID: $uhid • Abstinence: ${_abstinenceCtrl.text} Days', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('Primary Indication: ${patient?.infertilityType ?? "Infertility Workup"}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                      Text('Attending Specialist: ${patient?.attendingDoctor ?? "Dr. Sunita Rao, MD"}', style: const TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Macroscopic Evaluation Table
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            color: IvfErpTheme.gridHeaderBg,
+            child: const Text('1. MACROSCOPIC PHYSICAL EXAMINATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy)),
+          ),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(2), 2: FlexColumnWidth(2), 3: FlexColumnWidth(2)},
+            children: [
+              TableRow(
+                children: [
+                  _cell('Appearance', _appearance),
+                  _cell('Liquefaction Time', '${_liquefactionCtrl.text} min (< 60 min)'),
+                  _cell('Semen Volume', '${_volumeCtrl.text} mL (≥ 1.4 mL)'),
+                  _cell('Viscosity', _viscosity),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Microscopic Evaluation Table
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            color: IvfErpTheme.gridHeaderBg,
+            child: const Text('2. MICROSCOPIC SPERM PARAMETERS (WHO 6th Ed Criteria)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy)),
+          ),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {0: FlexColumnWidth(3), 1: FlexColumnWidth(2), 2: FlexColumnWidth(3)},
+            children: [
+              const TableRow(
+                decoration: BoxDecoration(color: Color(0xFFEBF5FB)),
+                children: [
+                  Padding(padding: EdgeInsets.all(5), child: Text('Parameter', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                  Padding(padding: EdgeInsets.all(5), child: Text('Observed Value', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                  Padding(padding: EdgeInsets.all(5), child: Text('WHO 6th Ed Reference Limit', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                ],
+              ),
+              _paramRow('Sperm Concentration', '${_concCtrl.text} Million / mL', '≥ 16.0 Million / mL'),
+              _paramRow('Progressive Motility (PR)', '${_prCtrl.text} %', '≥ 30.0 %'),
+              _paramRow('Non-Progressive Motility (NP)', '${_npCtrl.text} %', '—'),
+              _paramRow('Total Motility (PR + NP)', '${(double.tryParse(_prCtrl.text) ?? 0) + (double.tryParse(_npCtrl.text) ?? 0)} %', '≥ 42.0 %'),
+              _paramRow('Immotile Sperms', '${_immotileCtrl.text} %', '—'),
+              _paramRow('Normal Morphology (Kruger Strict)', '${_morphologyCtrl.text} %', '≥ 4.0 % Normal Forms'),
+              _paramRow('Vitality (Eosin-Nigrosin)', '${_vitalityCtrl.text} %', '≥ 54.0 % Live'),
+              _paramRow('Round Cells / Pus Cells', '${_wbcCtrl.text} / hpf', '< 1.0 Million / mL'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Diagnostic Impression Box
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAFAF1),
+              border: Border.all(color: IvfErpTheme.medicalEmerald),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text('DIAGNOSTIC IMPRESSION: ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy)),
+                    Text(_impression.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: IvfErpTheme.medicalEmerald)),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text('Clinical Recommendation: $_recommendation', style: const TextStyle(fontSize: 10, color: Colors.black87)),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _cell(String title, String val) {
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+          Text(val, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  TableRow _paramRow(String param, String val, String ref) {
+    return TableRow(
+      children: [
+        Padding(padding: const EdgeInsets.all(5), child: Text(param, style: const TextStyle(fontSize: 9.5))),
+        Padding(padding: const EdgeInsets.all(5), child: Text(val, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy))),
+        Padding(padding: const EdgeInsets.all(5), child: Text(ref, style: const TextStyle(fontSize: 9, color: Colors.black54))),
+      ],
     );
   }
 

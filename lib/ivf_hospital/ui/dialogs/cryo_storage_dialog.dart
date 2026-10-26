@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Cryopreservation, Vitrification & Liquid Nitrogen Tank Inventory Dialog
 class CryoStorageDialog extends StatefulWidget {
@@ -62,49 +64,77 @@ class _CryoStorageDialogState extends State<CryoStorageDialog> {
     },
   ];
 
+  void _printCryoInventory() {
+    final config = widget.repo.config;
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'STATUTORY CRYO-STORAGE & VITRIFICATION LOG SHEET',
+      documentSubtitle: 'ART Act 2021 Mandated Embryo/Oocyte/Sperm Cryopreservation Register',
+      documentNumber: 'CRYO-REG-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
+            child: Row(
+              children: [
+                Expanded(child: Text('Active Stored Specimens: ${_cryoInventory.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5))),
+                Text('Embryologist: Dr. Rajesh Patel', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF1B4F72))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF1B4F72),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Text('Straw ID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Tank / Canister', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Patient / UHID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 5, child: Text('Specimen Details', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Freeze Date', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Status', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ..._cryoInventory.map((item) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text(item['strawId'], style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('${item['tank']}\n${item['canister']} • ${item['goblet']}', style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 4, child: Text('${item['patientName']}\n(${item['uhid']})', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 5, child: Text(item['specimen'], style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 2, child: Text(item['freezeDate'], style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 3, child: Text(item['status'], style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: item['status'].toString().contains('FROZEN') ? const Color(0xFF27AE60) : const Color(0xFF7D6608)))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.94).clamp(840.0, 1140.0);
-    final dialogHeight = (screen.height * 0.90).clamp(520.0, 680.0);
-
     final filtered = _cryoInventory.where((item) {
       if (_tankFilter != 'ALL' && !item['tank'].toString().contains(_tankFilter)) return false;
       return true;
     }).toList();
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Win32 Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: const Color(0xFF1B4F72),
-              child: Row(
-                children: [
-                  const Icon(Icons.ac_unit_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Cryopreservation, Vitrification & Liquid Nitrogen (LN2) Tank Storage — ${widget.repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'CRYOPRESERVATION, VITRIFICATION & LIQUID NITROGEN (LN2) TANK STORAGE',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.ac_unit_rounded,
+      defaultWidth: 1050,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // Tank Summary Metric Cards
             Container(
@@ -240,6 +270,17 @@ class _CryoStorageDialogState extends State<CryoStorageDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Statutory Cryo Register (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1B4F72),
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printCryoInventory,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -250,7 +291,6 @@ class _CryoStorageDialogState extends State<CryoStorageDialog> {
             ),
           ],
         ),
-      ),
     );
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Clinical IVF & Fertility Analytics Dashboard Dialog
 class FertilityAnalyticsDialog extends StatelessWidget {
@@ -16,12 +18,94 @@ class FertilityAnalyticsDialog extends StatelessWidget {
     );
   }
 
+  void _printAnalyticsReport(BuildContext context) {
+    final cycles = repo.ivfCycles;
+    final totalCycles = cycles.length;
+    final positiveOutcomes = cycles.where((c) => c.cycleOutcome.contains('Positive') || c.cycleOutcome.contains('Delivered')).length;
+    final clinicalPregnancyRate = totalCycles > 0 ? ((positiveOutcomes / totalCycles) * 100).toStringAsFixed(1) : '0.0';
+
+    int totalM2 = 0;
+    int total2Pn = 0;
+    int totalBlastocysts = 0;
+    for (var c in cycles) {
+      totalM2 += c.m2Oocytes;
+      total2Pn += c.fertilization2pnCount;
+      totalBlastocysts += c.day5BlastocystCount;
+    }
+    final fertRate = totalM2 > 0 ? ((total2Pn / totalM2) * 100).toStringAsFixed(1) : '0.0';
+    final blastRate = total2Pn > 0 ? ((totalBlastocysts / total2Pn) * 100).toStringAsFixed(1) : '0.0';
+    final config = repo.config;
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'IVF & EMBRYOLOGY LAB CLINICAL SUCCESS AUDIT REPORT',
+      documentSubtitle: 'Quality Key Performance Indicators (KPIs) & ART Act Registry Summary',
+      documentNumber: 'ANALYTICS-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            color: const Color(0xFFF4ECF7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(children: [const Text('CLINICAL PREGNANCY RATE', style: TextStyle(fontSize: 8.5, color: Colors.grey, fontWeight: FontWeight.bold)), Text('$clinicalPregnancyRate%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E8449)))]),
+                Column(children: [const Text('FERTILIZATION RATE (2PN)', style: TextStyle(fontSize: 8.5, color: Colors.grey, fontWeight: FontWeight.bold)), Text('$fertRate%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF8E44AD)))]),
+                Column(children: [const Text('BLASTOCYST CONVERSION', style: TextStyle(fontSize: 8.5, color: Colors.grey, fontWeight: FontWeight.bold)), Text('$blastRate%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2980B9)))]),
+                Column(children: [const Text('TOTAL AUDITED CYCLES', style: TextStyle(fontSize: 8.5, color: Colors.grey, fontWeight: FontWeight.bold)), Text('$totalCycles', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF003366)))]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF4A148C),
+            child: const Row(
+              children: [
+                Expanded(flex: 3, child: Text('Cycle ID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Patient Name', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Type', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('OPU', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('2PN', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Blast', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Outcome', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ...cycles.map((c) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text(c.cycleId, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text(c.patientName, style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text(c.cycleType, style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text('${c.totalOocytesRetrieved}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text('${c.fertilization2pnCount}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 2, child: Text('${c.day5BlastocystCount}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text(c.cycleOutcome, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: c.cycleOutcome.contains('Positive') || c.cycleOutcome.contains('Delivered') ? const Color(0xFF27AE60) : const Color(0xFF7D6608)))),
+              ],
+            ),
+          )),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFF9FAFB),
+            child: const Text(
+              'REGULATORY COMPLIANCE NOTE: All clinical performance indicators compiled in accordance with National ART Act 2021 statutory register standards. Benchmarked against ESHRE & ISAR quality guidelines.',
+              style: TextStyle(fontSize: 9, fontStyle: FontStyle.italic, color: Color(0xFF555555)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(750.0, 920.0);
-    final dialogHeight = (screen.height * 0.88).clamp(520.0, 660.0);
-
     final cycles = repo.ivfCycles;
     final totalCycles = cycles.length;
     final positiveOutcomes = cycles.where((c) => c.cycleOutcome.contains('Positive') || c.cycleOutcome.contains('Delivered')).length;
@@ -40,38 +124,14 @@ class FertilityAnalyticsDialog extends StatelessWidget {
     final fertRate = totalM2 > 0 ? ((total2Pn / totalM2) * 100).toStringAsFixed(1) : '0.0';
     final blastRate = total2Pn > 0 ? ((totalBlastocysts / total2Pn) * 100).toStringAsFixed(1) : '0.0';
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.ivfPurple,
-              child: Row(
-                children: [
-                  const Icon(Icons.analytics_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'IVF & Embryology Success Rate Analytics — ${repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'IVF & EMBRYOLOGY SUCCESS RATE ANALYTICS',
+      subtitle: '${repo.config.hospitalName} • ${repo.config.activeBranch.branchName}',
+      icon: Icons.analytics_rounded,
+      defaultWidth: 1000,
+      defaultHeight: 680,
+      child: Column(
+        children: [
 
             // Metrics Cards Row
             Container(
@@ -160,6 +220,17 @@ class FertilityAnalyticsDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Clinical Success Audit (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.ivfPurple,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: () => _printAnalyticsReport(context),
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -170,7 +241,6 @@ class FertilityAnalyticsDialog extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 

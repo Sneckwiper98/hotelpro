@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
 import 'patient_record_360_dialog.dart';
+import 'print_preview_dialog.dart';
 
 /// OPD Token Queue & Daily Consultation Management (PDF Section 28 & 30)
 class OpdTokenQueueDialog extends StatefulWidget {
@@ -74,6 +76,64 @@ class _OpdTokenQueueDialogState extends State<OpdTokenQueueDialog> {
     },
   ];
 
+  void _printQueueSchedule() {
+    final config = widget.repo.config;
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'OPD APPOINTMENT SCHEDULE & TOKEN QUEUE SHEET',
+      documentSubtitle: 'Daily Outpatient Department Clinical Roster',
+      documentNumber: 'OPD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Date: ${DateTime.now().toString().split(' ')[0]}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                Text('Total Tokens: ${_queue.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF003366))),
+                Text('Filter Doctor: $_selectedDoctor', style: const TextStyle(fontSize: 10)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF003366),
+            child: const Row(
+              children: [
+                Expanded(flex: 2, child: Text('Token', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Patient / UHID', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('Consulting Doctor', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Category', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Time', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Status', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ..._queue.map((q) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text(q['token'], style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 4, child: Text('${q['patient']}\n(${q['uhid']})', style: const TextStyle(fontSize: 9))),
+                Expanded(flex: 4, child: Text(q['doctor'], style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 3, child: Text(q['category'], style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 2, child: Text(q['time'], style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 2, child: Text(q['status'], style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: q['status'] == 'WAITING' ? const Color(0xFFC0392B) : const Color(0xFF27AE60)))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _queue.where((t) {
@@ -86,41 +146,15 @@ class _OpdTokenQueueDialogState extends State<OpdTokenQueueDialog> {
     final inConsultCount = _queue.where((t) => t['status'] == 'IN_CONSULTATION').length;
     final completedCount = _queue.where((t) => t['status'] == 'COMPLETED').length;
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      backgroundColor: IvfErpTheme.windowBg,
-      child: Container(
-        width: 1000,
-        height: 600,
-        decoration: BoxDecoration(
-          border: Border.all(color: IvfErpTheme.borderDark, width: 1.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.people_alt_rounded, color: Colors.white, size: 16),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'OPD APPOINTMENT & TOKEN QUEUE MANAGER (PDF Section 28 & 30)',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold, letterSpacing: 0.3),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white, size: 16),
-                    splashRadius: 14,
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'OPD APPOINTMENT & TOKEN QUEUE MANAGER (PDF Section 28 & 30)',
+      subtitle: '${widget.repo.config.hospitalName} • ${widget.repo.config.activeBranch.branchName}',
+      icon: Icons.people_alt_rounded,
+      defaultWidth: 1040,
+      defaultHeight: 680,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
 
             // Top Metrics Strip
             Container(
@@ -317,9 +351,19 @@ class _OpdTokenQueueDialogState extends State<OpdTokenQueueDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               color: IvfErpTheme.menuBarBg,
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Text('Click "Call In" to notify patient. Click "Rx / File" to write prescription and consultation note.', style: TextStyle(fontSize: 10, color: Colors.black87)),
-                  const Spacer(),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print OPD Token Queue (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: _printQueueSchedule,
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
@@ -334,7 +378,6 @@ class _OpdTokenQueueDialogState extends State<OpdTokenQueueDialog> {
             ),
           ],
         ),
-      ),
     );
   }
 

@@ -72,4 +72,8 @@ class BedOccupancyModel {
     this.occupiedByUhid,
     this.dailyCharge = 2500.0,
   });
+
+  String? get patientName => occupiedByPatientName;
+  String? get patientUhid => occupiedByUhid;
+  double get dailyCharges => dailyCharge;
 }

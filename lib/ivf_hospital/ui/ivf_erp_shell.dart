@@ -21,6 +21,7 @@ import 'dialogs/bed_ward_matrix_dialog.dart';
 import 'dialogs/opd_token_queue_dialog.dart';
 import 'dialogs/art_consent_forms_dialog.dart';
 import 'dialogs/daily_mis_summary_dialog.dart';
+import 'widgets/hospital_logo_widget.dart';
 
 /// Classic Win32 High-Density Desktop ERP Shell for IVFPro 360 Enterprise
 /// Developed & Technology Partner: iSecure System Pvt. Ltd.
@@ -75,7 +76,7 @@ class _IvfErpShellState extends State<IvfErpShell> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.local_hospital_rounded, color: Colors.white, size: 20),
+                HospitalLogoWidget(logoPathOrUrl: config.logoPathOrUrl, size: 24),
                 const SizedBox(width: 8),
                 Text(
                   config.hospitalName.toUpperCase(),
@@ -93,6 +94,62 @@ class _IvfErpShellState extends State<IvfErpShell> {
                   child: Text(
                     config.tagline,
                     style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Multi-Branch Switcher Dropdown
+                Container(
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    border: Border.all(color: Colors.white38),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: config.activeBranchId,
+                      dropdownColor: IvfErpTheme.primaryNavy,
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+                      isDense: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                      items: config.branches.map((b) => DropdownMenuItem(
+                        value: b.branchId,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.apartment_rounded, color: Colors.white70, size: 13),
+                            const SizedBox(width: 5),
+                            Text('${b.branchName} (${b.branchId})'),
+                          ],
+                        ),
+                      )).toList(),
+                      onChanged: (newBranchId) {
+                        if (newBranchId != null) {
+                          repo.switchBranch(newBranchId);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Quick Settings & Logo Button
+                InkWell(
+                  onTap: () => HospitalSettingsDialog.show(context, repo),
+                  child: Container(
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.tune_rounded, color: Colors.white, size: 13),
+                        SizedBox(width: 4),
+                        Text('Settings & Logo', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
                 const Spacer(),
@@ -366,6 +423,17 @@ class _IvfErpShellState extends State<IvfErpShell> {
                 Text(
                   config.hospitalName,
                   style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
+                ),
+                const SizedBox(width: 8),
+                const Text('|', style: TextStyle(color: Colors.grey)),
+                const SizedBox(width: 8),
+
+                // Active Branch
+                const Icon(Icons.apartment_rounded, size: 13, color: IvfErpTheme.primaryNavy),
+                const SizedBox(width: 4),
+                Text(
+                  'Branch: ${config.activeBranch.branchName}',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy),
                 ),
                 const SizedBox(width: 8),
                 const Text('|', style: TextStyle(color: Colors.grey)),

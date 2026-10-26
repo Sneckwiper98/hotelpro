@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/ivf_erp_theme.dart';
 import '../../data/repositories/ivf_hospital_repository.dart';
+import '../widgets/win32_window_frame.dart';
+import 'print_preview_dialog.dart';
 
 /// Hospital Pharmacy, IVF Injections & Drug Inventory Dialog
 class PharmacyInventoryDialog extends StatelessWidget {
@@ -17,48 +19,83 @@ class PharmacyInventoryDialog extends StatelessWidget {
     );
   }
 
+  void _printStockRegister(BuildContext context) {
+    final items = repo.pharmacyItems;
+    final config = repo.config;
+    final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final dateFormat = DateFormat('dd-MMM-yyyy');
+
+    PrintPreviewDialog.show(
+      context: context,
+      config: config,
+      documentTitle: 'HOSPITAL PHARMACY & DRUG INVENTORY STOCK REGISTER',
+      documentSubtitle: 'IVF Injections, Hormones, Culture Media & Emergency Drug Inventory',
+      documentNumber: 'PHARM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      initialPaperFormat: 'A4',
+      previewContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: const Color(0xFFEBF5FB),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total Formulations Tracked: ${items.length}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5)),
+                Text('Chief Pharmacist: Qualified D.Pharm / B.Pharm', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF003366))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            color: const Color(0xFF003366),
+            child: const Row(
+              children: [
+                Expanded(flex: 2, child: Text('Code', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 5, child: Text('Drug Brand & Formulation', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Category', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Batch No.', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Expiry', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Stock', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('MRP', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          ),
+          ...items.map((m) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE)))),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text(m.medicineId, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 5, child: Text(m.brandName, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text(m.category, style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 3, child: Text(m.batchNumber, style: const TextStyle(fontSize: 8.5, fontFamily: 'monospace'))),
+                Expanded(flex: 3, child: Text(dateFormat.format(m.expiryDate), style: const TextStyle(fontSize: 8.5))),
+                Expanded(flex: 2, child: Text('${m.currentStock}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF27AE60)))),
+                Expanded(flex: 3, child: Text(currency.format(m.mrpUnit), textAlign: TextAlign.right, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    final dialogWidth = (screen.width * 0.90).clamp(780.0, 960.0);
-    final dialogHeight = (screen.height * 0.88).clamp(500.0, 650.0);
-
     final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
     final dateFormat = DateFormat('dd-MMM-yyyy');
     final items = repo.pharmacyItems;
 
-    return Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      child: Container(
-        width: dialogWidth,
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: IvfErpTheme.dialogBg,
-          border: Border.all(color: IvfErpTheme.borderDark, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title Bar
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              color: IvfErpTheme.primaryNavy,
-              child: Row(
-                children: [
-                  const Icon(Icons.medication_rounded, size: 15, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Hospital Pharmacy & IVF Injections Stock Register — ${repo.config.hospitalName}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 15, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+    return Win32WindowFrame(
+      title: 'HOSPITAL PHARMACY & IVF INJECTIONS STOCK REGISTER',
+      subtitle: '${repo.config.hospitalName} • ${repo.config.activeBranch.branchName}',
+      icon: Icons.medication_rounded,
+      defaultWidth: 1000,
+      defaultHeight: 660,
+      child: Column(
+        children: [
 
             // Data Table
             Expanded(
@@ -119,6 +156,17 @@ class PharmacyInventoryDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Print Stock Register (A4)'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IvfErpTheme.primaryNavy,
+                      foregroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    ),
+                    onPressed: () => _printStockRegister(context),
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
                     onPressed: () => Navigator.pop(context),
@@ -129,7 +177,6 @@ class PharmacyInventoryDialog extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
