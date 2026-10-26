@@ -13,6 +13,14 @@ import 'dialogs/ivf_billing_invoice_dialog.dart';
 import 'dialogs/fertility_analytics_dialog.dart';
 import 'dialogs/diagnostics_lab_dialog.dart';
 import 'dialogs/pharmacy_inventory_dialog.dart';
+import 'dialogs/patient_record_360_dialog.dart';
+import 'dialogs/follicular_tracking_dialog.dart';
+import 'dialogs/semen_analysis_dialog.dart';
+import 'dialogs/cryo_storage_dialog.dart';
+import 'dialogs/bed_ward_matrix_dialog.dart';
+import 'dialogs/opd_token_queue_dialog.dart';
+import 'dialogs/art_consent_forms_dialog.dart';
+import 'dialogs/daily_mis_summary_dialog.dart';
 
 /// Classic Win32 High-Density Desktop ERP Shell for IVFPro 360 Enterprise
 /// Developed & Technology Partner: iSecure System Pvt. Ltd.
@@ -120,18 +128,21 @@ class _IvfErpShellState extends State<IvfErpShell> {
             child: Row(
               children: [
                 _menuItem('File', [
+                  _subMenuItem('Daily MIS Census & Revenue Summary', Icons.assessment_rounded, () => DailyMisSummaryDialog.show(context, repo)),
                   _subMenuItem('Export Patient Data (CSV/Excel)', Icons.table_view_rounded, () {}),
-                  _subMenuItem('Print Daily MIS Summary', Icons.print_rounded, () {}),
                   _subMenuItem('Backup Database', Icons.backup_rounded, () {}),
                 ]),
                 _menuItem('Master Data', [
                   _subMenuItem('Register Couple / Patient', Icons.person_add_rounded, () => PatientRegistrationDialog.show(context, repo)),
-                  _subMenuItem('Doctor & Staff Directory', Icons.badge_rounded, () {}),
-                  _subMenuItem('Wards & Bed Matrix', Icons.hotel_rounded, () {}),
+                  _subMenuItem('OPD Appointments & Token Queue', Icons.queue_rounded, () => OpdTokenQueueDialog.show(context, repo)),
+                  _subMenuItem('Wards & Bed Matrix', Icons.hotel_rounded, () => BedWardMatrixDialog.show(context, repo)),
                 ]),
                 _menuItem('Infertility & IVF', [
                   _subMenuItem('New IVF / ICSI Cycle', Icons.add_circle_outline, () => IvfCycleManagementDialog.show(context, repo)),
+                  _subMenuItem('Follicular USG Tracking Sheet', Icons.monitor_heart_rounded, () => FollicularTrackingDialog.show(context, repo)),
                   _subMenuItem('Embryology Lab & Blastocysts', Icons.science_rounded, () => IvfCycleManagementDialog.show(context, repo)),
+                  _subMenuItem('Cryo & LN2 Tank Inventory', Icons.ac_unit_rounded, () => CryoStorageDialog.show(context, repo)),
+                  _subMenuItem('ART Act 2021 Legal Consent Forms', Icons.gavel_rounded, () => ArtConsentFormsDialog.show(context, repo)),
                   _subMenuItem('Fertility Analytics Dashboard', Icons.analytics_rounded, () => FertilityAnalyticsDialog.show(context, repo)),
                 ]),
                 _menuItem('Maternity & Delivery', [
@@ -139,7 +150,8 @@ class _IvfErpShellState extends State<IvfErpShell> {
                   _subMenuItem('Labour Room & Delivery Episode', Icons.child_friendly_rounded, () => MaternityDeliveryDialog.show(context, repo)),
                 ]),
                 _menuItem('Diagnostics', [
-                  _subMenuItem('Pathology & Semen Analysis (WHO)', Icons.biotech_rounded, () => DiagnosticsLabDialog.show(context, repo)),
+                  _subMenuItem('Pathology Lab Tests', Icons.biotech_rounded, () => DiagnosticsLabDialog.show(context, repo)),
+                  _subMenuItem('WHO Semen Analysis (6th Ed)', Icons.water_drop_rounded, () => SemenAnalysisDialog.show(context, repo)),
                 ]),
                 _menuItem('Pharmacy', [
                   _subMenuItem('IVF Injections & Drug Stock', Icons.medication_rounded, () => PharmacyInventoryDialog.show(context, repo)),
@@ -179,20 +191,66 @@ class _IvfErpShellState extends State<IvfErpShell> {
                   ),
                   const SizedBox(width: 5),
                   _toolbarButton(
+                    icon: Icons.assignment_ind_rounded,
+                    label: 'Patient 360 File',
+                    onTap: () {
+                      if (repo.patients.isNotEmpty) {
+                        PatientRecord360Dialog.show(context, repo.patients.first, repo);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.queue_rounded,
+                    label: 'OPD Queue',
+                    onTap: () => OpdTokenQueueDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
                     icon: Icons.biotech_rounded,
-                    label: 'IVF / ART Cycles',
+                    label: 'IVF Cycles',
                     onTap: () => setState(() => _activeViewIndex = 1),
                   ),
                   const SizedBox(width: 5),
                   _toolbarButton(
+                    icon: Icons.monitor_heart_rounded,
+                    label: 'Follicular USG',
+                    onTap: () => FollicularTrackingDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.water_drop_rounded,
+                    label: 'Semen Lab (WHO)',
+                    onTap: () => SemenAnalysisDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.ac_unit_rounded,
+                    label: 'Cryo LN2 Tanks',
+                    onTap: () => CryoStorageDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.gavel_rounded,
+                    label: 'ART Consents',
+                    onTap: () => ArtConsentFormsDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.hotel_rounded,
+                    label: 'Bed Matrix',
+                    onTap: () => BedWardMatrixDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
                     icon: Icons.pregnant_woman_rounded,
-                    label: 'Maternity & Delivery',
+                    label: 'Maternity',
                     onTap: () => setState(() => _activeViewIndex = 2),
                   ),
                   const SizedBox(width: 5),
                   _toolbarButton(
                     icon: Icons.science_rounded,
-                    label: 'Pathology & Lab',
+                    label: 'Pathology Lab',
                     onTap: () => DiagnosticsLabDialog.show(context, repo),
                   ),
                   const SizedBox(width: 5),
@@ -206,6 +264,12 @@ class _IvfErpShellState extends State<IvfErpShell> {
                     icon: Icons.receipt_long_rounded,
                     label: 'Billing & Packages',
                     onTap: () => IvfBillingInvoiceDialog.show(context, repo),
+                  ),
+                  const SizedBox(width: 5),
+                  _toolbarButton(
+                    icon: Icons.assessment_rounded,
+                    label: 'Daily MIS',
+                    onTap: () => DailyMisSummaryDialog.show(context, repo),
                   ),
                   const SizedBox(width: 5),
                   _toolbarButton(
@@ -405,7 +469,8 @@ class _IvfErpShellState extends State<IvfErpShell> {
               SizedBox(width: 100, child: Text('Category', style: IvfErpTheme.gridHeaderStyle)),
               SizedBox(width: 130, child: Text('Infertility Type', style: IvfErpTheme.gridHeaderStyle)),
               Expanded(flex: 2, child: Text('Attending Doctor', style: IvfErpTheme.gridHeaderStyle)),
-              SizedBox(width: 100, child: Text('Status', textAlign: TextAlign.center, style: IvfErpTheme.gridHeaderStyle)),
+              SizedBox(width: 90, child: Text('Status', textAlign: TextAlign.center, style: IvfErpTheme.gridHeaderStyle)),
+              SizedBox(width: 75, child: Text('Patient 360', textAlign: TextAlign.center, style: IvfErpTheme.gridHeaderStyle)),
             ],
           ),
         ),
@@ -414,31 +479,50 @@ class _IvfErpShellState extends State<IvfErpShell> {
             itemCount: list.length,
             itemBuilder: (context, idx) {
               final p = list[idx];
-              return Container(
-                height: 28,
-                color: idx.isEven ? IvfErpTheme.gridRowEven : IvfErpTheme.gridRowOdd,
-                child: Row(
-                  children: [
-                    SizedBox(width: 35, child: Text('${idx + 1}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
-                    SizedBox(width: 95, child: Text(p.uhid, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy))),
-                    Expanded(flex: 2, child: Text(p.femaleName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold))),
-                    SizedBox(width: 50, child: Text('${p.femaleAge}y', style: const TextStyle(fontSize: 10))),
-                    SizedBox(width: 60, child: Text(p.femaleBloodGroup, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                    Expanded(flex: 2, child: Text(p.malePartnerName ?? '—', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
-                    SizedBox(width: 100, child: Text(p.clinicalCategory, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.ivfPurple))),
-                    SizedBox(width: 130, child: Text(p.infertilityType, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
-                    Expanded(flex: 2, child: Text(p.attendingDoctor, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
-                    SizedBox(
-                      width: 100,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          color: const Color(0xFFD4EFDF),
-                          child: Text(p.status, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: IvfErpTheme.medicalEmerald)),
+              return InkWell(
+                onDoubleTap: () => PatientRecord360Dialog.show(context, p, repo),
+                child: Container(
+                  height: 28,
+                  color: idx.isEven ? IvfErpTheme.gridRowEven : IvfErpTheme.gridRowOdd,
+                  child: Row(
+                    children: [
+                      SizedBox(width: 35, child: Text('${idx + 1}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
+                      SizedBox(width: 95, child: Text(p.uhid, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: IvfErpTheme.primaryNavy))),
+                      Expanded(flex: 2, child: Text(p.femaleName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold))),
+                      SizedBox(width: 50, child: Text('${p.femaleAge}y', style: const TextStyle(fontSize: 10))),
+                      SizedBox(width: 60, child: Text(p.femaleBloodGroup, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                      Expanded(flex: 2, child: Text(p.malePartnerName ?? '—', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
+                      SizedBox(width: 100, child: Text(p.clinicalCategory, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: IvfErpTheme.ivfPurple))),
+                      SizedBox(width: 130, child: Text(p.infertilityType, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
+                      Expanded(flex: 2, child: Text(p.attendingDoctor, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10))),
+                      SizedBox(
+                        width: 90,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            color: const Color(0xFFD4EFDF),
+                            child: Text(p.status, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: IvfErpTheme.medicalEmerald)),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(
+                        width: 75,
+                        child: Center(
+                          child: InkWell(
+                            onTap: () => PatientRecord360Dialog.show(context, p, repo),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: IvfErpTheme.primaryNavy,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: const Text('📋 360 File', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
