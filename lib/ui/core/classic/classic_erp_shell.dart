@@ -823,8 +823,8 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         'deployment',
                         _availableUpdate?.hasUpdate == true ? Icons.system_update_rounded : Icons.system_update_alt_rounded,
                         _availableUpdate?.hasUpdate == true
-                            ? 'Deployment & Software Update ⚠️ (v${_availableUpdate!.latestVersion} READY)'
-                            : 'Deployment & Software Update',
+                            ? 'Software Update ⚠️ (v${_availableUpdate!.latestVersion} READY)'
+                            : 'Software Update Center',
                       ),
                       _menuEntry('about', Icons.info_outline_rounded, 'About HotelPro Enterprise'),
                       const PopupMenuDivider(),
@@ -994,8 +994,8 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         'deployment',
                         _availableUpdate?.hasUpdate == true ? Icons.system_update_rounded : Icons.system_update_alt_rounded,
                         _availableUpdate?.hasUpdate == true
-                            ? 'Deployment & Software Update ⚠️ (v${_availableUpdate!.latestVersion} READY)'
-                            : 'Deployment & Software Update',
+                            ? 'Software Update ⚠️ (v${_availableUpdate!.latestVersion} READY)'
+                            : 'Software Update Center',
                       ),
                     ],
                     onSelected: (val) {
@@ -1317,7 +1317,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                           _systemVersion,
                           width: 85,
                           textColor: const Color(0xFF1B4F72),
-                          tooltip: 'HotelPro ERP Version: $_systemVersion (Click to open Deployment & Software Update)',
+                          tooltip: 'HotelPro ERP Version: $_systemVersion (Click to open Software Update Center)',
                           onTap: () => _showDeploymentDialog(context),
                         ),
                         if (_availableUpdate?.hasUpdate == true)
@@ -2937,7 +2937,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Deployment & Software Update Center',
+                      'Software Update Center',
                       style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -3145,54 +3145,6 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         ),
                       ),
                     ],
-
-                    const SizedBox(height: 16),
-
-                    // Android Mobile Ecosystem Deployment Section
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.phone_android_rounded, size: 16, color: Color(0xFF1B4F72)),
-                              SizedBox(width: 6),
-                              Text(
-                                'Android Mobile Apps (.APK) Deployment Center',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1B4F72)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Distribute APKs for Hotel Waiter POS, Delivery Partner, Housekeeping, Manager MIS & Customer Dining.',
-                            style: TextStyle(fontSize: 10, color: ClassicErpTheme.textMuted),
-                          ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.cloud_download_outlined, size: 14),
-                            label: const Text(
-                              'Open Android Mobile Apps Release Center',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1B4F72),
-                              side: const BorderSide(color: Color(0xFF1B4F72)),
-                              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              AndroidAppsReleaseDialog.show(context);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -63,11 +63,15 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
       }
     }
 
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = (screenSize.width * 0.95).clamp(800.0, 1280.0);
+    final dialogHeight = (screenSize.height * 0.92).clamp(520.0, 740.0);
+
     return Dialog(
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: Container(
-        width: 1060,
-        height: 720,
+        width: dialogWidth,
+        height: dialogHeight,
         decoration: BoxDecoration(
           color: ClassicErpTheme.dialogBg,
           border: Border.all(color: ClassicErpTheme.borderDark, width: 2),
@@ -162,145 +166,165 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                 color: Color(0xFFF4F6F7),
                 border: Border(bottom: BorderSide(color: ClassicErpTheme.borderDark, width: 1)),
               ),
-              child: Row(
-                children: [
-                  // Search Box
-                  Container(
-                    width: 260,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-                    ),
-                    child: Row(
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Icon(Icons.search, size: 14, color: ClassicErpTheme.textMuted),
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchCtrl,
-                            style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain),
-                            decoration: const InputDecoration(
-                              hintText: 'Search Inv No, Guest, GSTIN...',
-                              hintStyle: TextStyle(fontSize: 10.5, color: Colors.grey),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 6),
-                            ),
-                            onChanged: (val) => setState(() {
-                              _searchQuery = val.trim();
-                              _selectedRowIndex = 0;
-                            }),
-                          ),
-                        ),
-                        if (_searchQuery.isNotEmpty)
-                          InkWell(
-                            onTap: () {
-                              _searchCtrl.clear();
-                              setState(() {
-                                _searchQuery = '';
-                                _selectedRowIndex = 0;
-                              });
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(Icons.close, size: 13, color: Colors.grey),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Search Box (compact responsive width)
+                              Container(
+                                width: 190,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 5),
+                                      child: Icon(Icons.search, size: 13, color: ClassicErpTheme.textMuted),
+                                    ),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _searchCtrl,
+                                        style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain),
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search Inv, Guest, GSTIN...',
+                                          hintStyle: TextStyle(fontSize: 10, color: Colors.grey),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 6),
+                                        ),
+                                        onChanged: (val) => setState(() {
+                                          _searchQuery = val.trim();
+                                          _selectedRowIndex = 0;
+                                        }),
+                                      ),
+                                    ),
+                                    if (_searchQuery.isNotEmpty)
+                                      InkWell(
+                                        onTap: () {
+                                          _searchCtrl.clear();
+                                          setState(() {
+                                            _searchQuery = '';
+                                            _selectedRowIndex = 0;
+                                          });
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4),
+                                          child: Icon(Icons.close, size: 13, color: Colors.grey),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
 
-                  // Channel Filter
-                  const Text('Channel: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _channelFilter,
-                        isDense: true,
-                        style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain, fontWeight: FontWeight.w600),
-                        items: const [
-                          DropdownMenuItem(value: 'ALL', child: Text('All Channels')),
-                          DropdownMenuItem(value: 'ROOM', child: Text('Room Stay (18% GST)')),
-                          DropdownMenuItem(value: 'POS', child: Text('Restaurant POS (5% GST)')),
-                          DropdownMenuItem(value: 'DELIVERY', child: Text('Online Delivery (5% GST)')),
+                              // Channel Filter
+                              const Text('Channel: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              Container(
+                                height: 26,
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _channelFilter,
+                                    isDense: true,
+                                    style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain, fontWeight: FontWeight.w600),
+                                    items: const [
+                                      DropdownMenuItem(value: 'ALL', child: Text('All Channels')),
+                                      DropdownMenuItem(value: 'ROOM', child: Text('Room Stay (18% GST)')),
+                                      DropdownMenuItem(value: 'POS', child: Text('Restaurant POS (5% GST)')),
+                                      DropdownMenuItem(value: 'DELIVERY', child: Text('Online Delivery (5% GST)')),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _channelFilter = v);
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Status Filter
+                              const Text('Status: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              Container(
+                                height: 26,
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _statusFilter,
+                                    isDense: true,
+                                    style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain, fontWeight: FontWeight.w600),
+                                    items: const [
+                                      DropdownMenuItem(value: 'ALL', child: Text('All Status')),
+                                      DropdownMenuItem(value: 'PAID', child: Text('Paid Settled')),
+                                      DropdownMenuItem(value: 'CREDIT', child: Text('Credit / BTC')),
+                                      DropdownMenuItem(value: 'PENDING', child: Text('Pending / COD')),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _statusFilter = v);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 10),
+
+                          // Quick Action Buttons
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _win32ToolbarButton(
+                                icon: Icons.add_task_rounded,
+                                label: '+ Create Invoice',
+                                isPrimary: true,
+                                onTap: () => _showCreateInvoiceDialog(repo),
+                              ),
+                              const SizedBox(width: 5),
+                              _win32ToolbarButton(
+                                icon: Icons.print_rounded,
+                                label: 'Preview & Print',
+                                onTap: () {
+                                  if (invoices.isNotEmpty && _selectedRowIndex < invoices.length) {
+                                    _showTaxInvoicePreview(invoices[_selectedRowIndex], repo);
+                                  }
+                                },
+                              ),
+                              const SizedBox(width: 5),
+                              _win32ToolbarButton(
+                                icon: Icons.account_balance_wallet_rounded,
+                                label: 'Tally XML',
+                                onTap: () => _showTallyExportDialog(context, invoices, repo),
+                              ),
+                              const SizedBox(width: 5),
+                              _win32ToolbarButton(
+                                icon: Icons.table_view_rounded,
+                                label: 'GSTR-1 Returns',
+                                onTap: () => _showGstr1ExportDialog(context, invoices),
+                              ),
+                            ],
+                          ),
                         ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _channelFilter = v);
-                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Status Filter
-                  const Text('Status: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _statusFilter,
-                        isDense: true,
-                        style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain, fontWeight: FontWeight.w600),
-                        items: const [
-                          DropdownMenuItem(value: 'ALL', child: Text('All Status')),
-                          DropdownMenuItem(value: 'PAID', child: Text('Paid Settled')),
-                          DropdownMenuItem(value: 'CREDIT', child: Text('Credit / BTC')),
-                          DropdownMenuItem(value: 'PENDING', child: Text('Pending / COD')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _statusFilter = v);
-                        },
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Quick Action Buttons
-                  _win32ToolbarButton(
-                    icon: Icons.add_task_rounded,
-                    label: '+ Create Invoice',
-                    isPrimary: true,
-                    onTap: () => _showCreateInvoiceDialog(repo),
-                  ),
-                  const SizedBox(width: 6),
-                  _win32ToolbarButton(
-                    icon: Icons.print_rounded,
-                    label: 'Preview & Print',
-                    onTap: () {
-                      if (invoices.isNotEmpty && _selectedRowIndex < invoices.length) {
-                        _showTaxInvoicePreview(invoices[_selectedRowIndex], repo);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  _win32ToolbarButton(
-                    icon: Icons.account_balance_wallet_rounded,
-                    label: 'Tally XML',
-                    onTap: () => _showTallyExportDialog(context, invoices, repo),
-                  ),
-                  const SizedBox(width: 6),
-                  _win32ToolbarButton(
-                    icon: Icons.table_view_rounded,
-                    label: 'GSTR-1 Returns',
-                    onTap: () => _showGstr1ExportDialog(context, invoices),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
@@ -321,11 +345,15 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
               ),
               child: Row(
                 children: [
-                  Text(
-                    'Total Filtered Records: ${invoices.length} invoices',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain),
+                  Expanded(
+                    child: Text(
+                      'Total Filtered Records: ${invoices.length} invoices',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   if (invoices.isNotEmpty && _selectedRowIndex < invoices.length) ...[
                     if (invoices[_selectedRowIndex].status != ErpInvoiceStatus.paid)
                       _win32ToolbarButton(
@@ -366,9 +394,19 @@ class _ClassicInvoiceRegisterDialogState extends State<ClassicInvoiceRegisterDia
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(label, style: const TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted, fontWeight: FontWeight.w600)),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 1),
-                  Text(value, style: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.bold)),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
