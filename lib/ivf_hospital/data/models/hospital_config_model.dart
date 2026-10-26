@@ -82,8 +82,53 @@ class HospitalConfigModel {
   String licenseStatus; // 'ACTIVE', 'TRIAL', 'EXPIRED'
 
   // Multi-Branch Architecture
-  String activeBranchId;
-  List<HospitalBranchModel> branches;
+  String _activeBranchId;
+  String get activeBranchId => _activeBranchId.isEmpty ? 'BR-01' : _activeBranchId;
+  set activeBranchId(String val) => _activeBranchId = val;
+
+  static List<HospitalBranchModel> get defaultBranches => [
+    HospitalBranchModel(
+      branchId: 'BR-01',
+      branchName: 'Central Nagpur Main Campus & IVF Center',
+      address: 'Station Road, Opp. Civil Hospital',
+      city: 'Nagpur',
+      phone: '+91 712 2554433',
+      inChargeDoctor: 'Dr. Sunita Rao, MD (OBGYN, IVF Specialist)',
+      artClinicRegNumber: 'ART/MH/NAG/2024/0089',
+      isMainBranch: true,
+    ),
+    HospitalBranchModel(
+      branchId: 'BR-02',
+      branchName: 'Dharampeth Satellite Clinic & DayCare',
+      address: 'Plot 42, West High Court Road, Dharampeth',
+      city: 'Nagpur',
+      phone: '+91 712 2598811',
+      inChargeDoctor: 'Dr. Rajesh Deshmukh, MS (OBGYN)',
+      artClinicRegNumber: 'ART/MH/NAG/2024/0089-B2',
+      isMainBranch: false,
+    ),
+    HospitalBranchModel(
+      branchId: 'BR-03',
+      branchName: 'Wardha Road Fertility Care Branch',
+      address: 'Near Metro Pillar 118, Somalwada, Wardha Road',
+      city: 'Nagpur',
+      phone: '+91 712 2671122',
+      inChargeDoctor: 'Dr. Anjali Mehta, DNB, ART Specialist',
+      artClinicRegNumber: 'ART/MH/NAG/2024/0089-B3',
+      isMainBranch: false,
+    ),
+  ];
+
+  List<HospitalBranchModel> _branches;
+  List<HospitalBranchModel> get branches =>
+      _branches.isNotEmpty ? _branches : defaultBranches;
+  set branches(List<HospitalBranchModel>? val) {
+    if (val != null && val.isNotEmpty) {
+      _branches = val;
+    } else {
+      _branches = defaultBranches;
+    }
+  }
 
   HospitalConfigModel({
     this.hospitalName = 'Shri Radhakrishna Hospital & Infertility Centre',
@@ -112,45 +157,18 @@ class HospitalConfigModel {
     this.isCloudSyncEnabled = false,
     this.licenseKey = 'ISECURE-IVFPRO-ENT-2026-COMMERCIAL',
     this.licenseStatus = 'ACTIVE',
-    this.activeBranchId = 'BR-01',
+    String? activeBranchId,
     List<HospitalBranchModel>? branches,
-  }) : branches = branches ?? [
-          HospitalBranchModel(
-            branchId: 'BR-01',
-            branchName: 'Central Nagpur Main Campus & IVF Center',
-            address: 'Station Road, Opp. Civil Hospital',
-            city: 'Nagpur',
-            phone: '+91 712 2554433',
-            inChargeDoctor: 'Dr. Sunita Rao, MD (OBGYN, IVF Specialist)',
-            artClinicRegNumber: 'ART/MH/NAG/2024/0089',
-            isMainBranch: true,
-          ),
-          HospitalBranchModel(
-            branchId: 'BR-02',
-            branchName: 'Dharampeth Satellite Clinic & DayCare',
-            address: 'Plot 42, West High Court Road, Dharampeth',
-            city: 'Nagpur',
-            phone: '+91 712 2598811',
-            inChargeDoctor: 'Dr. Rajesh Deshmukh, MS (OBGYN)',
-            artClinicRegNumber: 'ART/MH/NAG/2024/0089-B2',
-            isMainBranch: false,
-          ),
-          HospitalBranchModel(
-            branchId: 'BR-03',
-            branchName: 'Wardha Road Fertility Care Branch',
-            address: 'Near Metro Pillar 118, Somalwada, Wardha Road',
-            city: 'Nagpur',
-            phone: '+91 712 2671122',
-            inChargeDoctor: 'Dr. Anjali Mehta, DNB, ART Specialist',
-            artClinicRegNumber: 'ART/MH/NAG/2024/0089-B3',
-            isMainBranch: false,
-          ),
-        ];
+  })  : _activeBranchId = activeBranchId ?? 'BR-01',
+        _branches = (branches != null && branches.isNotEmpty)
+            ? branches
+            : defaultBranches;
 
   HospitalBranchModel get activeBranch {
-    return branches.firstWhere(
+    final list = branches;
+    return list.firstWhere(
       (b) => b.branchId == activeBranchId,
-      orElse: () => branches.first,
+      orElse: () => list.first,
     );
   }
 
@@ -215,9 +233,12 @@ class HospitalConfigModel {
       isCloudSyncEnabled: map['isCloudSyncEnabled'] ?? false,
       licenseKey: map['licenseKey'] ?? '',
       licenseStatus: map['licenseStatus'] ?? 'ACTIVE',
-      activeBranchId: map['activeBranchId'] ?? 'BR-01',
-      branches: map['branches'] != null
-          ? (map['branches'] as List).map((b) => HospitalBranchModel.fromMap(b as Map<String, dynamic>)).toList()
+      activeBranchId: map['activeBranchId']?.toString() ?? 'BR-01',
+      branches: (map['branches'] != null && map['branches'] is List && (map['branches'] as List).isNotEmpty)
+          ? (map['branches'] as List)
+              .where((b) => b != null)
+              .map((b) => HospitalBranchModel.fromMap(Map<String, dynamic>.from(b as Map)))
+              .toList()
           : null,
     );
   }

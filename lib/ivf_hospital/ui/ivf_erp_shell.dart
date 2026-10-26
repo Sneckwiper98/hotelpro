@@ -107,7 +107,9 @@ class _IvfErpShellState extends State<IvfErpShell> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: config.activeBranchId,
+                      value: config.branches.any((b) => b.branchId == config.activeBranchId)
+                          ? config.activeBranchId
+                          : (config.branches.isNotEmpty ? config.branches.first.branchId : null),
                       dropdownColor: IvfErpTheme.primaryNavy,
                       icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
                       isDense: true,

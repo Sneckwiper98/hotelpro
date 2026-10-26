@@ -89,7 +89,10 @@ class _HospitalSettingsDialogState extends State<HospitalSettingsDialog> with Si
     _cloudSyncEnabled = c.isCloudSyncEnabled;
 
     _activeBranchId = c.activeBranchId;
-    _branches = List.from(c.branches);
+    _branches = List<HospitalBranchModel>.from(c.branches);
+    if (_branches.isEmpty) {
+      _branches = List<HospitalBranchModel>.from(HospitalConfigModel.defaultBranches);
+    }
   }
 
   @override
