@@ -175,16 +175,18 @@ class PosOrderModel {
   PosOrderModel copyWith({
     PosOrderStatus? status,
     String? chargedToFolioId,
+    String? tableNumber,
+    List<PosOrderItem>? items,
   }) {
     return PosOrderModel(
       id: id,
       outletId: outletId,
       orderNumber: orderNumber,
-      tableNumber: tableNumber,
+      tableNumber: tableNumber ?? this.tableNumber,
       roomNumber: roomNumber,
       guestName: guestName,
       status: status ?? this.status,
-      items: items,
+      items: items ?? this.items,
       subtotal: subtotal,
       tax: tax,
       total: total,

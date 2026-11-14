@@ -433,8 +433,43 @@ CREATE TABLE IF NOT EXISTS banquet_halls (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 26. Enterprise Cryptographic Security Audit Trail (Immutable Append-Only)
+CREATE TABLE IF NOT EXISTS security_audit_logs (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    user_id TEXT,
+    username TEXT NOT NULL,
+    user_role TEXT,
+    action TEXT NOT NULL,
+    category TEXT NOT NULL,
+    severity TEXT DEFAULT 'info',
+    entity_id TEXT,
+    details TEXT NOT NULL,
+    terminal_ip TEXT DEFAULT 'Master Station',
+    tamper_hash TEXT NOT NULL
+);
+
+-- 27. Engineering & Room Maintenance Work Orders
+CREATE TABLE IF NOT EXISTS maintenance_tickets (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    ticket_number TEXT NOT NULL UNIQUE,
+    branch_id TEXT REFERENCES branches(id) ON DELETE CASCADE,
+    room_id TEXT,
+    room_number TEXT NOT NULL,
+    category TEXT NOT NULL,
+    priority TEXT DEFAULT 'medium',
+    issue_description TEXT NOT NULL,
+    reported_by TEXT NOT NULL,
+    reported_at TIMESTAMPTZ DEFAULT NOW(),
+    assigned_to TEXT,
+    status TEXT DEFAULT 'reported',
+    resolved_at TIMESTAMPTZ,
+    resolution_notes TEXT,
+    cost_incurred NUMERIC(10, 2) DEFAULT 0.0
+);
+
 -- =====================================================================
--- 2. ROW-LEVEL SECURITY (RLS) POLICIES
+-- 2. ROW-LEVEL SECURITY (RLS) POLICIES & IMMUTABILITY GUARDS
 -- =====================================================================
 DO $$
 DECLARE
@@ -445,7 +480,7 @@ DECLARE
         'folios', 'folio_transactions', 'pos_outlets', 'pos_menu_items',
         'pos_orders', 'pos_bills', 'housekeeping_tasks', 'delivery_riders',
         'customers', 'customer_orders', 'aggregator_channels', 'stock_items',
-        'purchases', 'expenses', 'banquet_halls'
+        'purchases', 'expenses', 'banquet_halls', 'maintenance_tickets'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
@@ -453,6 +488,14 @@ BEGIN
         EXECUTE format('DROP POLICY IF EXISTS "Public access policy" ON %I;', tbl);
         EXECUTE format('CREATE POLICY "Public access policy" ON %I FOR ALL USING (true) WITH CHECK (true);', tbl);
     END LOOP;
+
+    -- Security Hardening: Append-Only Protection for Audit Trail
+    ALTER TABLE security_audit_logs ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Audit log insert policy" ON security_audit_logs;
+    DROP POLICY IF EXISTS "Audit log read policy" ON security_audit_logs;
+    CREATE POLICY "Audit log read policy" ON security_audit_logs FOR SELECT USING (true);
+    CREATE POLICY "Audit log insert policy" ON security_audit_logs FOR INSERT WITH CHECK (true);
+    -- Intentionally NO UPDATE or DELETE policy on security_audit_logs to prevent log tampering!
 END $$;
 
 -- =====================================================================

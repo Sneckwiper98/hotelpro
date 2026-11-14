@@ -628,6 +628,14 @@ class _FolioViewState extends State<FolioView> {
                                 reference: refCtrl.text,
                               );
 
+                              repo.logSecurityEvent(
+                                action: 'FOLIO_PAYMENT_RECORDED',
+                                category: 'Billing & Cash',
+                                severity: 'info',
+                                entityId: folio.folioNumber,
+                                details: 'Payment of ₹${amt.toStringAsFixed(2)} recorded via ${method.label} for Room ${folio.roomNumber} (${folio.guestName})',
+                              );
+
                               Navigator.pop(ctx);
                             }, color: const Color(0xFF27AE60), textColor: Colors.white),
                           ],

@@ -491,6 +491,13 @@ class _NightAuditDialogState extends State<NightAuditDialog> {
     setState(() => _isProcessing = true);
     await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
+    final repo = context.read<HotelRepository>();
+    repo.logSecurityEvent(
+      action: 'NIGHT_AUDIT_EXECUTED',
+      category: 'Billing & Cash',
+      severity: 'critical',
+      details: 'Automated Night Audit & Day-End Rollover successfully completed for Date: ${_auditDate.toIso8601String().substring(0, 10)}',
+    );
     setState(() {
       _isProcessing = false;
       _auditCompleted = true;

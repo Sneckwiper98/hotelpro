@@ -255,7 +255,18 @@ class HotelSyncBridgeService extends ChangeNotifier {
         final data = (content.isNotEmpty ? jsonDecode(content) : <String, dynamic>{}) as Map<String, dynamic>;
         final pin = (data['pin'] ?? data['password'])?.toString().trim();
 
-        if (pin == 'hotel@123' || pin == 'admin' || pin == '1234') {
+        final isPinAuthorized = pin != null &&
+            (pin == repo.pairingSecurityPin ||
+             repo.verifySupervisorAuthorization(pin));
+
+        if (isPinAuthorized) {
+          repo.logSecurityEvent(
+            action: 'TERMINAL_PAIRED_SUCCESS',
+            category: 'System Security',
+            severity: 'info',
+            details: 'Remote staff device paired via Wi-Fi handshake',
+            terminalOrIp: request.connectionInfo?.remoteAddress.address ?? 'Remote Terminal',
+          );
           _sendJsonResponse(request.response, {
             'success': true,
             'token': _syncSecurityToken ?? '',
@@ -264,6 +275,13 @@ class HotelSyncBridgeService extends ChangeNotifier {
             'timestamp': DateTime.now().toIso8601String(),
           });
         } else {
+          repo.logSecurityEvent(
+            action: 'TERMINAL_PAIRING_FAILED',
+            category: 'System Security',
+            severity: 'warning',
+            details: 'Unauthorized device attempted pairing with invalid PIN',
+            terminalOrIp: request.connectionInfo?.remoteAddress.address ?? 'Remote Terminal',
+          );
           request.response.statusCode = HttpStatus.forbidden;
           _sendJsonResponse(request.response, {
             'success': false,
@@ -635,6 +653,11 @@ class HotelSyncBridgeService extends ChangeNotifier {
     response.headers.contentType = ContentType.json;
     response.write(jsonEncode(data));
     await response.close();
+  }
+
+  /// Public broadcast event emitter for repository state changes
+  void broadcastEvent(String eventType, Map<String, dynamic> payload) {
+    _broadcastSseEvent(eventType, payload);
   }
 
   void _broadcastSseEvent(String eventType, Map<String, dynamic> payload) {

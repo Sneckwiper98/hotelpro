@@ -6,6 +6,7 @@ import '../../../config/classic_erp_theme.dart';
 import '../../../data/models/housekeeping_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../core/classic/utils/report_utils.dart';
+import '../../core/classic/dialogs/maintenance_work_orders_dialog.dart';
 import '../../core/components/hotel_logo_widget.dart';
 
 /// Classic Windows Desktop Housekeeping & Room Turnover Matrix
@@ -81,6 +82,8 @@ class HousekeepingView extends StatelessWidget {
                                 ]).toList(),
                               );
                             }),
+                            const SizedBox(width: 4),
+                            _ribbonButton(Icons.build_circle_rounded, 'Maintenance Desk', () => MaintenanceWorkOrdersDialog.show(context)),
                             const SizedBox(width: 4),
                             _ribbonButton(Icons.print_rounded, 'Print Report', () {
                               PrintPreviewDialog.show(

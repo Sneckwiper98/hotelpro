@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../config/app_constants.dart';
 import '../../../data/models/room_model.dart';
+import '../../../data/models/maintenance_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../../data/services/hotel_sync_bridge_service.dart';
 import '../../../data/services/app_update_service.dart';
@@ -655,15 +656,21 @@ class _HousekeepingAppShellState extends State<HousekeepingAppShell> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                final issue = '$category: ${descCtrl.text.trim()}';
-                repo.reportRoomMaintenanceIssue(
+                final issue = descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : 'Defect inspected by staff';
+                repo.createMaintenanceTicket(
                   roomId: room.id,
+                  roomNumber: room.roomNumber,
+                  category: category,
+                  priority: MaintenancePriority.high,
                   issueDescription: issue,
                   reportedBy: _staffMember,
                 );
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Room ${room.roomNumber} set to Out of Order for maintenance')),
+                  SnackBar(
+                    content: Text('✓ Work order logged & Room ${room.roomNumber} set to Out of Order'),
+                    backgroundColor: const Color(0xFFC0392B),
+                  ),
                 );
               },
               child: const Text('Mark Out of Order', style: TextStyle(fontWeight: FontWeight.bold)),

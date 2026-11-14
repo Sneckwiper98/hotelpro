@@ -331,12 +331,17 @@ class _PosRestaurantViewState extends State<PosRestaurantView> {
 
   Widget _topTabButton(String label, int index, bool isSelected) {
     return InkWell(
+      borderRadius: ClassicErpTheme.radiusSm,
       onTap: () => setState(() => _currentViewIndex = index),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1B4F72) : Colors.white,
-          border: Border.all(color: isSelected ? const Color(0xFF1B4F72) : ClassicErpTheme.borderDark, width: 1),
+          color: isSelected ? ClassicErpTheme.mdiHeaderActive : Colors.white,
+          borderRadius: ClassicErpTheme.radiusSm,
+          border: Border.all(
+            color: isSelected ? ClassicErpTheme.mdiHeaderActive : ClassicErpTheme.borderLight,
+            width: isSelected ? 1.5 : 1,
+          ),
         ),
         child: Text(
           label,
@@ -1849,6 +1854,14 @@ class _PosRestaurantViewState extends State<PosRestaurantView> {
                                   ),
                                   const SizedBox(width: 4),
                                   IconButton(
+                                    icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: Color(0xFFD35400)),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: 'Shift / Relocate Table Order',
+                                    onPressed: () => _showShiftTableDialog(context, repo, tableNo),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
                                     icon: const Icon(Icons.receipt_long_rounded, size: 15, color: Color(0xFF1B4F72)),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
@@ -2125,6 +2138,45 @@ class _PosRestaurantViewState extends State<PosRestaurantView> {
                                         child: const Text('Print Slip', style: TextStyle(fontSize: 9.5)),
                                       ),
                                       const SizedBox(width: 4),
+                                      if (order.status == PosOrderStatus.kotPrinted)
+                                        InkWell(
+                                          onTap: () => repo.updatePosOrderStatus(orderId: order.id, newStatus: PosOrderStatus.inKitchen),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(color: const Color(0xFFE67E22), borderRadius: BorderRadius.circular(2)),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.soup_kitchen_rounded, size: 10, color: Colors.white),
+                                                SizedBox(width: 3),
+                                                Text('Cooking', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      if (order.status == PosOrderStatus.inKitchen)
+                                        InkWell(
+                                          onTap: () => repo.updatePosOrderStatus(orderId: order.id, newStatus: PosOrderStatus.served),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(color: const Color(0xFF2980B9), borderRadius: BorderRadius.circular(2)),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.room_service_rounded, size: 10, color: Colors.white),
+                                                SizedBox(width: 3),
+                                                Text('Serve', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      if (order.status == PosOrderStatus.served)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(2), border: Border.all(color: const Color(0xFF27AE60))),
+                                          child: const Text('Served ✓', style: TextStyle(fontSize: 9, color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
+                                        ),
+                                      const SizedBox(width: 4),
                                       ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -2155,9 +2207,9 @@ class _PosRestaurantViewState extends State<PosRestaurantView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        border: Border.all(color: color, width: 1),
-        borderRadius: BorderRadius.circular(4),
+        color: color.withOpacity(0.08),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        borderRadius: ClassicErpTheme.radiusSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2166,6 +2218,148 @@ class _PosRestaurantViewState extends State<PosRestaurantView> {
           const SizedBox(width: 6),
           Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
         ],
+      ),
+    );
+  }
+
+  // ── Shift Table Dialog ───────────────────────────────────────────────────
+  void _showShiftTableDialog(BuildContext context, HotelRepository repo, String sourceTable) {
+    final availableTables = [
+      'Table 1', 'Table 2', 'Table 3', 'Table 4', 'Table 5', 'Table 6',
+      'Table 7', 'Table 8', 'Table 9', 'Table 10', 'VIP Room 1', 'Lawn Patio 1', 'Lawn Patio 2'
+    ].where((t) => t != sourceTable && t.replaceAll('Table ', 'T-') != sourceTable).toList();
+
+    String selectedTarget = availableTables.first;
+    final reasonCtrl = TextEditingController(text: 'Guest requested relocation');
+    final pinCtrl = TextEditingController();
+    String? errorText;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Dialog(
+            backgroundColor: ClassicErpTheme.panelBg,
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            child: Container(
+              width: 420,
+              decoration: BoxDecoration(
+                color: ClassicErpTheme.panelBg,
+                border: Border.all(color: ClassicErpTheme.borderDark, width: 2),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    height: 28,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    color: const Color(0xFFD35400),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.swap_horiz_rounded, size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text('Shift Table Order — [From $sourceTable]', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Destination / Target Table:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(border: Border.all(color: ClassicErpTheme.borderDark), color: Colors.white),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedTarget,
+                              isExpanded: true,
+                              items: availableTables.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => selectedTarget = val);
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text('Relocation Reason:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(border: Border.all(color: ClassicErpTheme.borderDark), color: Colors.white),
+                          child: TextField(
+                            controller: reasonCtrl,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6), border: InputBorder.none),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text('Supervisor Authorization PIN:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(border: Border.all(color: ClassicErpTheme.borderDark), color: Colors.white),
+                          child: TextField(
+                            controller: pinCtrl,
+                            obscureText: true,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              border: InputBorder.none,
+                              errorText: errorText,
+                              hintText: 'Enter Supervisor / Admin PIN',
+                              hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel', style: TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFD35400),
+                                foregroundColor: Colors.white,
+                                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                              ),
+                              onPressed: () {
+                                final success = repo.shiftTableOrder(
+                                  fromTable: sourceTable,
+                                  toTable: selectedTarget,
+                                  supervisorPin: pinCtrl.text,
+                                  reason: reasonCtrl.text,
+                                );
+                                if (success) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('✓ Successfully shifted order from $sourceTable to $selectedTarget'),
+                                      backgroundColor: const Color(0xFF27AE60),
+                                    ),
+                                  );
+                                } else {
+                                  setModalState(() => errorText = 'Invalid Supervisor PIN or no active orders found');
+                                }
+                              },
+                              icon: const Icon(Icons.check, size: 14),
+                              label: const Text('Execute Shift', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

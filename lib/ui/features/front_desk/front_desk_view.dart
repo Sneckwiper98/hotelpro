@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../../../config/app_constants.dart';
 import '../../../config/classic_erp_theme.dart';
 import '../../../data/models/room_model.dart';
+import '../../../data/models/maintenance_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
+import '../../../data/services/security_service.dart';
 import '../../core/classic/classic_form_widgets.dart';
+import '../../core/classic/dialogs/maintenance_work_orders_dialog.dart';
 
 /// Classic Windows Desktop Front Desk & Room Matrix
 /// High-density room grid, crisp 1px borders, Win32 filter bar and dialogs.
@@ -28,13 +31,35 @@ class _FrontDeskViewState extends State<FrontDeskView> {
     final repo = context.watch<HotelRepository>();
     final rooms = repo.activeBranchRooms;
 
+    // Active maintenance tickets
+    final activeDefects = repo.activeBranchMaintenanceTickets
+        .where((t) => t.status != MaintenanceStatus.resolved)
+        .toList();
+    final defectRoomIds = activeDefects.map((t) => t.roomId).toSet();
+
+    // Live counts for quick-filter pills
+    final totalCount = rooms.length;
+    final availableCleanCount = rooms.where((r) => r.status == RoomStatus.availableClean || r.status == RoomStatus.cleanInspected).length;
+    final occupiedCount = rooms.where((r) => r.status == RoomStatus.occupied).length;
+    final dirtyCount = rooms.where((r) => r.status == RoomStatus.dirtyVacant).length;
+    final inCleaningCount = rooms.where((r) => r.status == RoomStatus.cleaningInProgress).length;
+    final defectCount = defectRoomIds.length;
+
     // Filter rooms
     final filteredRooms = rooms.where((r) {
       if (_selectedFloor != 'all' && r.floorNumber.toString() != _selectedFloor) {
         return false;
       }
-      if (_selectedStatus != 'all' && r.status.code != _selectedStatus) {
-        return false;
+      if (_selectedStatus != 'all') {
+        if (_selectedStatus == 'defect') {
+          if (!defectRoomIds.contains(r.id)) return false;
+        } else if (_selectedStatus == RoomStatus.availableClean.code) {
+          if (r.status != RoomStatus.availableClean && r.status != RoomStatus.cleanInspected) {
+            return false;
+          }
+        } else if (r.status.code != _selectedStatus) {
+          return false;
+        }
       }
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
@@ -56,9 +81,9 @@ class _FrontDeskViewState extends State<FrontDeskView> {
         children: [
           // ── 1. Classic Filter & Search Ribbon Bar ────────────────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
-              color: ClassicErpTheme.panelBg,
+              color: Colors.white,
               border: Border(bottom: BorderSide(color: ClassicErpTheme.borderLight, width: 1)),
             ),
             child: LayoutBuilder(
@@ -73,30 +98,46 @@ class _FrontDeskViewState extends State<FrontDeskView> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.table_rows_rounded, size: 16, color: ClassicErpTheme.mdiHeaderActive),
-                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: ClassicErpTheme.mdiHeaderActive.withOpacity(0.1),
+                                borderRadius: ClassicErpTheme.radiusSm,
+                              ),
+                              child: const Icon(Icons.grid_view_rounded, size: 16, color: ClassicErpTheme.mdiHeaderActive),
+                            ),
+                            const SizedBox(width: 8),
                             const Text(
-                              'Live Room Matrix & Tape Chart',
+                              'Live Room Matrix & Operations',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: ClassicErpTheme.textMain,
+                                letterSpacing: -0.2,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              '• [${repo.activeBranch.name.toUpperCase()} - ${rooms.length} Rooms]',
-                              style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMuted),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: ClassicErpTheme.radiusSm,
+                                border: Border.all(color: ClassicErpTheme.borderLight),
+                              ),
+                              child: Text(
+                                '${repo.activeBranch.name.toUpperCase()} • $totalCount ROOMS',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: ClassicErpTheme.textMuted),
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
 
                         // Search Input Box
                         ClassicErpSearchField(
-                          hintText: 'Search room, guest...',
-                          width: 220,
-                          height: 26,
+                          hintText: 'Search room, guest, type...',
+                          width: 240,
+                          height: 28,
                           onChanged: (val) {
                             setState(() {
                               _searchQuery = val;
@@ -111,11 +152,11 @@ class _FrontDeskViewState extends State<FrontDeskView> {
             ),
           ),
 
-          // ── 2. Floor & Status Filter Chips ───────────────────────────────
+          // ── 2. Interactive Status Filter Pills & Floor Filter ─────────────
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: const BoxDecoration(
-              color: Color(0xFFF2F4F4),
+              color: Color(0xFFF8FAFC),
               border: Border(bottom: BorderSide(color: ClassicErpTheme.borderLight, width: 1)),
             ),
             child: SingleChildScrollView(
@@ -123,57 +164,73 @@ class _FrontDeskViewState extends State<FrontDeskView> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Floor:', style: TextStyle(color: ClassicErpTheme.textMain, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text('Floor:', style: TextStyle(color: ClassicErpTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 6),
-                  _buildClassicFilterChip('All Floors', 'all', _selectedFloor, (val) => setState(() => _selectedFloor = val)),
+                  _buildFloorPill('All Floors', 'all'),
                   for (final floor in floors) ...[
                     const SizedBox(width: 4),
-                    _buildClassicFilterChip('Floor $floor', floor.toString(), _selectedFloor, (val) => setState(() => _selectedFloor = val)),
+                    _buildFloorPill('Floor $floor', floor.toString()),
                   ],
 
                   const SizedBox(width: 14),
-                  Container(width: 1, height: 16, color: ClassicErpTheme.borderLight),
+                  Container(width: 1, height: 20, color: ClassicErpTheme.borderLight),
                   const SizedBox(width: 14),
 
-                  const Text('Status:', style: TextStyle(color: ClassicErpTheme.textMain, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text('Filter:', style: TextStyle(color: ClassicErpTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 6),
-                  _buildClassicFilterChip('All Status', 'all', _selectedStatus, (val) => setState(() => _selectedStatus = val)),
-                  const SizedBox(width: 4),
-                  _buildClassicFilterChip('Available', RoomStatus.availableClean.code, _selectedStatus, (val) => setState(() => _selectedStatus = val), badgeColor: const Color(0xFF27AE60)),
-                  const SizedBox(width: 4),
-                  _buildClassicFilterChip('Occupied', RoomStatus.occupied.code, _selectedStatus, (val) => setState(() => _selectedStatus = val), badgeColor: const Color(0xFFC0392B)),
-                  const SizedBox(width: 4),
-                  _buildClassicFilterChip('Dirty', RoomStatus.dirtyVacant.code, _selectedStatus, (val) => setState(() => _selectedStatus = val), badgeColor: const Color(0xFFD35400)),
-                  const SizedBox(width: 4),
-                  _buildClassicFilterChip('Inspected', RoomStatus.cleanInspected.code, _selectedStatus, (val) => setState(() => _selectedStatus = val), badgeColor: const Color(0xFF16A085)),
+                  _buildStatusPill('All Rooms', 'all', totalCount, const Color(0xFF0F3A60)),
+                  const SizedBox(width: 5),
+                  _buildStatusPill('🟢 Ready', RoomStatus.availableClean.code, availableCleanCount, const Color(0xFF059669)),
+                  const SizedBox(width: 5),
+                  _buildStatusPill('🔴 Occupied', RoomStatus.occupied.code, occupiedCount, const Color(0xFFDC2626)),
+                  const SizedBox(width: 5),
+                  _buildStatusPill('🟠 Dirty', RoomStatus.dirtyVacant.code, dirtyCount, const Color(0xFFD97706)),
+                  const SizedBox(width: 5),
+                  _buildStatusPill('🔵 In Cleaning', RoomStatus.cleaningInProgress.code, inCleaningCount, const Color(0xFF2563EB)),
+                  const SizedBox(width: 5),
+                  _buildStatusPill(
+                    '🔧 Defect Alert',
+                    'defect',
+                    defectCount,
+                    defectCount > 0 ? const Color(0xFFDC2626) : const Color(0xFF64748B),
+                    isAlert: defectCount > 0,
+                  ),
                 ],
               ),
             ),
           ),
 
-          // ── 3. High-Density Room Grid Canvas ─────────────────────────────
+          // ── 3. High-Density Modern Room Grid ─────────────────────────────
           Expanded(
             child: filteredRooms.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No rooms match your filter criteria.',
-                      style: TextStyle(color: ClassicErpTheme.textMuted, fontSize: 12),
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.meeting_room_outlined, size: 40, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No rooms match your filter criteria.',
+                          style: TextStyle(color: ClassicErpTheme.textMuted, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
                   )
                 : Container(
-                    color: const Color(0xFFECEFF1),
-                    padding: const EdgeInsets.all(8),
+                    color: ClassicErpTheme.windowBg,
+                    padding: const EdgeInsets.all(10),
                     child: GridView.builder(
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 250,
-                        mainAxisExtent: 140,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+                        maxCrossAxisExtent: 260,
+                        mainAxisExtent: 156,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
                       ),
                       itemCount: filteredRooms.length,
                       itemBuilder: (context, index) {
                         final room = filteredRooms[index];
-                        return _buildClassicRoomCard(context, room, repo);
+                        final hasDefect = defectRoomIds.contains(room.id);
+                        return _buildModernRoomCard(context, room, repo, hasDefect);
                       },
                     ),
                   ),
@@ -183,33 +240,77 @@ class _FrontDeskViewState extends State<FrontDeskView> {
     );
   }
 
-  Widget _buildClassicFilterChip(String label, String value, String currentSelected, Function(String) onSelect, {Color? badgeColor}) {
-    final isSelected = currentSelected == value;
-
+  Widget _buildFloorPill(String label, String value) {
+    final isSelected = _selectedFloor == value;
     return InkWell(
-      onTap: () => onSelect(value),
+      borderRadius: ClassicErpTheme.radiusSm,
+      onTap: () => setState(() => _selectedFloor = value),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4E6F1) : ClassicErpTheme.buttonBg,
+          color: isSelected ? const Color(0xFFE2E8F0) : Colors.white,
+          borderRadius: ClassicErpTheme.radiusSm,
           border: Border.all(
-            color: isSelected ? const Color(0xFF2980B9) : ClassicErpTheme.borderLight,
-            width: isSelected ? 1.5 : 1,
+            color: isSelected ? const Color(0xFF0F3A60) : ClassicErpTheme.borderLight,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF0F3A60) : ClassicErpTheme.textMain,
+            fontSize: 10.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusPill(String label, String value, int count, Color accentColor, {bool isAlert = false}) {
+    final isSelected = _selectedStatus == value;
+    return InkWell(
+      borderRadius: ClassicErpTheme.radiusSm,
+      onTap: () => setState(() => _selectedStatus = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withOpacity(0.12)
+              : (isAlert ? const Color(0xFFFEF2F2) : Colors.white),
+          borderRadius: ClassicErpTheme.radiusSm,
+          border: Border.all(
+            color: isSelected
+                ? accentColor
+                : (isAlert ? const Color(0xFFFCA5A5) : ClassicErpTheme.borderLight),
+            width: isSelected ? 1.5 : 1.0,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (badgeColor != null) ...[
-              Container(width: 7, height: 7, color: badgeColor),
-              const SizedBox(width: 4),
-            ],
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? const Color(0xFF1B4F72) : ClassicErpTheme.textMain,
-                fontSize: 10.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? accentColor : (isAlert ? const Color(0xFFB91C1C) : ClassicErpTheme.textMain),
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? accentColor : const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ClassicErpTheme.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -218,118 +319,306 @@ class _FrontDeskViewState extends State<FrontDeskView> {
     );
   }
 
-  Widget _buildClassicRoomCard(BuildContext context, RoomModel room, HotelRepository repo) {
+  Widget _buildModernRoomCard(BuildContext context, RoomModel room, HotelRepository repo, bool hasDefect) {
     Color statusColor;
+    String statusTitle;
+    IconData statusIcon;
+
     switch (room.status) {
       case RoomStatus.availableClean:
-        statusColor = const Color(0xFF27AE60);
-        break;
       case RoomStatus.cleanInspected:
-        statusColor = const Color(0xFF16A085);
+        statusColor = const Color(0xFF059669);
+        statusTitle = 'READY';
+        statusIcon = Icons.check_circle_outline;
         break;
       case RoomStatus.occupied:
-        statusColor = const Color(0xFFC0392B);
+        statusColor = const Color(0xFFDC2626);
+        statusTitle = 'OCCUPIED';
+        statusIcon = Icons.person_outline;
         break;
       case RoomStatus.dirtyVacant:
-        statusColor = const Color(0xFFD35400);
+        statusColor = const Color(0xFFD97706);
+        statusTitle = 'DIRTY';
+        statusIcon = Icons.cleaning_services_outlined;
         break;
       case RoomStatus.cleaningInProgress:
-        statusColor = const Color(0xFF2980B9);
+        statusColor = const Color(0xFF2563EB);
+        statusTitle = 'CLEANING';
+        statusIcon = Icons.autorenew_rounded;
         break;
       case RoomStatus.reserved:
-        statusColor = const Color(0xFF8E44AD);
+        statusColor = const Color(0xFF7C3AED);
+        statusTitle = 'RESERVED';
+        statusIcon = Icons.bookmark_border_rounded;
         break;
       case RoomStatus.outOfOrder:
-        statusColor = const Color(0xFF7F8C8D);
+        statusColor = const Color(0xFF475569);
+        statusTitle = 'O.O.O.';
+        statusIcon = Icons.block_rounded;
         break;
     }
 
     final currency = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: ClassicErpTheme.radiusSm,
+        border: Border.all(
+          color: hasDefect ? const Color(0xFFEF4444) : ClassicErpTheme.borderLight,
+          width: hasDefect ? 1.5 : 1.0,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar: Room Number & Status Tag
+          Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.08),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+              border: Border(bottom: BorderSide(color: statusColor.withOpacity(0.2))),
+            ),
+            child: Row(
+              children: [
+                Icon(statusIcon, size: 14, color: statusColor),
+                const SizedBox(width: 5),
+                Text(
+                  'ROOM ${room.roomNumber}',
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const Spacer(),
+                if (hasDefect) ...[
+                  InkWell(
+                    onTap: () {
+                      MaintenanceWorkOrdersDialog.show(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.build_rounded, size: 9, color: Colors.white),
+                          SizedBox(width: 2),
+                          Text('DEFECT', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    statusTitle,
+                    style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Room Details & Rate
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        room.roomTypeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF0F3A60),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      currency.format(room.basePrice),
+                      style: const TextStyle(
+                        color: ClassicErpTheme.textMain,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  'Floor ${room.floorNumber} • ₹${room.basePrice.toStringAsFixed(0)}/night',
+                  style: const TextStyle(color: ClassicErpTheme.textMuted, fontSize: 9.5),
+                ),
+              ],
+            ),
+          ),
+
+          // Occupancy or Operational State
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: ClassicErpTheme.borderLight),
+            ),
+            child: room.status == RoomStatus.occupied
+                ? Row(
+                    children: [
+                      const Icon(Icons.person, size: 12, color: Color(0xFFDC2626)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          room.currentGuestName ?? 'In-House Guest',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain),
+                        ),
+                      ),
+                      if (room.currentGuestVip != null)
+                        Text(
+                          '★ ${room.currentGuestVip!.label}',
+                          style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                        ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        room.status == RoomStatus.dirtyVacant ? Icons.cleaning_services_rounded : Icons.check_circle_outline_rounded,
+                        size: 12,
+                        color: room.status == RoomStatus.dirtyVacant ? const Color(0xFFD97706) : const Color(0xFF059669),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        room.status == RoomStatus.dirtyVacant ? 'Housekeeping Required' : 'Ready for Check-In',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: room.status == RoomStatus.dirtyVacant ? const Color(0xFFD97706) : const Color(0xFF059669),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+
+          const Spacer(),
+
+          // Inline Quick Action Buttons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(5)),
+              border: Border(top: BorderSide(color: ClassicErpTheme.borderLight)),
+            ),
+            child: Row(
+              children: [
+                if (room.status == RoomStatus.occupied) ...[
+                  Expanded(
+                    child: _inlineCardBtn('Folio', Icons.receipt_long_rounded, () {
+                      widget.onNavigateToTab(1);
+                    }, color: const Color(0xFF0F3A60)),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _inlineCardBtn('Details', Icons.open_in_new_rounded, () {
+                      _showRoomDetailsModal(context, room, repo);
+                    }, color: const Color(0xFF475569)),
+                  ),
+                ] else if (room.status == RoomStatus.dirtyVacant || room.status == RoomStatus.cleaningInProgress) ...[
+                  Expanded(
+                    child: _inlineCardBtn('Mark Clean', Icons.done_all_rounded, () {
+                      repo.updateRoomStatus(room.id, RoomStatus.cleanInspected);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Room ${room.roomNumber} marked inspected and clean.'),
+                          backgroundColor: const Color(0xFF059669),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }, color: const Color(0xFF059669)),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _inlineCardBtn('Details', Icons.open_in_new_rounded, () {
+                      _showRoomDetailsModal(context, room, repo);
+                    }, color: const Color(0xFF475569)),
+                  ),
+                ] else ...[
+                  Expanded(
+                    child: _inlineCardBtn('Check In', Icons.login_rounded, () {
+                      _showExpressCheckInDialog(context, room, repo);
+                    }, color: const Color(0xFF0F3A60)),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _inlineCardBtn('Details', Icons.open_in_new_rounded, () {
+                      _showRoomDetailsModal(context, room, repo);
+                    }, color: const Color(0xFF475569)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inlineCardBtn(String label, IconData icon, VoidCallback onTap, {required Color color}) {
     return InkWell(
-      onTap: () => _showRoomDetailsModal(context, room, repo),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(3),
       child: Container(
+        height: 22,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, offset: Offset(1, 1), blurRadius: 2),
-          ],
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: color.withOpacity(0.35)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Header Bar: Room Number & Status Pill
-            Container(
-              height: 22,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              color: statusColor,
-              child: Row(
-                children: [
-                  Text(
-                    'ROOM ${room.roomNumber}',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  Text(
-                    room.status.label.split(' ').first.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
-                  ),
-                ],
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
               ),
-            ),
-
-            // Room Type & Floor
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    room.roomTypeName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFF1B4F72), fontSize: 10.5, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Floor ${room.floorNumber} • ${currency.format(room.basePrice)}/night',
-                    style: const TextStyle(color: ClassicErpTheme.textMuted, fontSize: 9.5),
-                  ),
-                ],
-              ),
-            ),
-
-            const Spacer(),
-
-            // Guest Info or Availability Box
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              color: ClassicErpTheme.panelBg,
-              child: room.status == RoomStatus.occupied
-                  ? Row(
-                      children: [
-                        const Icon(Icons.person, size: 12, color: Color(0xFFC0392B)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            room.currentGuestName ?? 'In-House Guest',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        const Icon(Icons.check_circle_outline, size: 12, color: Color(0xFF27AE60)),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Ready for Check-In',
-                          style: TextStyle(fontSize: 9.5, color: Color(0xFF27AE60), fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
             ),
           ],
         ),
@@ -550,7 +839,9 @@ class _FrontDeskViewState extends State<FrontDeskView> {
   void _showExpressCheckInDialog(BuildContext context, RoomModel room, HotelRepository repo) {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
+    final idNumberCtrl = TextEditingController();
     final advanceCtrl = TextEditingController(text: room.basePrice.toStringAsFixed(0));
+    String idType = 'Aadhaar Card';
     int nights = 1;
     VipTier selectedVip = VipTier.regular;
     PaymentMethod paymentMethod = PaymentMethod.creditCard;
@@ -563,7 +854,7 @@ class _FrontDeskViewState extends State<FrontDeskView> {
             shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             insetPadding: const EdgeInsets.all(24),
             child: Container(
-              width: 500,
+              width: 520,
               decoration: BoxDecoration(
                 color: ClassicErpTheme.panelBg,
                 border: Border.all(color: ClassicErpTheme.borderDark, width: 2),
@@ -582,7 +873,7 @@ class _FrontDeskViewState extends State<FrontDeskView> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Express Check-In: Room ${room.roomNumber}',
+                            'Express Check-In & KYC Registration: Room ${room.roomNumber}',
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -608,6 +899,29 @@ class _FrontDeskViewState extends State<FrontDeskView> {
                         _classicFormField('Guest Full Name *', nameCtrl),
                         const SizedBox(height: 8),
                         _classicFormField('Mobile Phone / WhatsApp *', phoneCtrl),
+                        const SizedBox(height: 8),
+
+                        // KYC Government ID Verification
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: ClassicErpDropdown<String>(
+                                label: 'Govt. Photo ID Type',
+                                value: idType,
+                                height: 28,
+                                items: ['Aadhaar Card', 'Passport', 'Driving License', 'Voter ID Card', 'PAN Card'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setModalState(() => idType = val);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _classicFormField('ID Doc Number *', idNumberCtrl),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
 
                         Row(
@@ -700,6 +1014,14 @@ class _FrontDeskViewState extends State<FrontDeskView> {
                                 numberOfNights: nights,
                                 advancePayment: adv,
                                 advanceMethod: paymentMethod,
+                              );
+
+                              repo.logSecurityEvent(
+                                action: 'GUEST_CHECKIN_EXECUTED',
+                                category: 'Front Desk',
+                                severity: 'info',
+                                details: 'Guest ${nameCtrl.text} checked into Room ${room.roomNumber} for $nights night(s). KYC ID: $idType [${SecurityService.maskAadhaar(idNumberCtrl.text)}]',
+                                entityId: 'Room ${room.roomNumber}',
                               );
 
                               Navigator.pop(ctx);

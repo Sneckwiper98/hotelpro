@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../config/classic_erp_theme.dart';
+import '../../../config/app_constants.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/hotel_repository.dart';
 import '../../features/dashboard/executive_analytics_view.dart';
@@ -21,11 +22,13 @@ import 'dialogs/classic_invoice_register_dialog.dart';
 import 'dialogs/global_search_dialog.dart';
 import 'dialogs/night_audit_dialog.dart';
 import 'dialogs/quick_entry_launcher_dialog.dart';
-import 'dialogs/android_apps_release_dialog.dart';
+import 'dialogs/security_audit_dialog.dart';
+import 'dialogs/maintenance_work_orders_dialog.dart';
 import 'utils/report_utils.dart';
 import '../components/hotel_logo_widget.dart';
 import '../components/app_update_dialog.dart';
 import '../../../data/services/app_update_service.dart';
+import '../../../data/models/maintenance_model.dart';
 
 /// Classic Windows Desktop ERP Shell
 /// Accurately renders the complete Windows ERP desktop environment shown in the user photo:
@@ -495,6 +498,28 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     });
   }
 
+  void _snapWindowLeft(ErpWindow win) {
+    if (_desktopConstraints == null) return;
+    setState(() {
+      win.isMaximized = false;
+      win.isMinimized = false;
+      win.position = Offset.zero;
+      win.size = Size(_desktopConstraints!.maxWidth / 2, _desktopConstraints!.maxHeight);
+      _bringToFront(win);
+    });
+  }
+
+  void _snapWindowRight(ErpWindow win) {
+    if (_desktopConstraints == null) return;
+    setState(() {
+      win.isMaximized = false;
+      win.isMinimized = false;
+      win.position = Offset(_desktopConstraints!.maxWidth / 2, 0);
+      win.size = Size(_desktopConstraints!.maxWidth / 2, _desktopConstraints!.maxHeight);
+      _bringToFront(win);
+    });
+  }
+
   void _minimizeAllWindows() {
     setState(() {
       for (final win in _openWindows) {
@@ -651,43 +676,105 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
           // ── 1. Windows Application Title Bar ────────────────────────────
           Container(
             width: double.infinity,
-            height: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: const BoxDecoration(
-              color: Color(0xFF0C2461), // Classic Windows Title Bar Navy
+              gradient: LinearGradient(
+                colors: [Color(0xFF0A192F), Color(0xFF1E293B)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              border: Border(bottom: BorderSide(color: Color(0xFF334155), width: 1)),
             ),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: Image.asset(
-                    'lib/ui/features/master/assets/hotelpro.png',
-                    height: 16,
-                    width: 16,
-                    fit: BoxFit.contain,
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Hotelpro Management System - ${repo.currentErpUser.username}[${activeBranch.name.toUpperCase()} - ${activeBranch.code}] • ${repo.clientBusinessName.toUpperCase()}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: Image.asset(
+                      'lib/ui/features/master/assets/hotelpro.png',
+                      height: 16,
+                      width: 16,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Hotelpro Management System',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: const Color(0xFF0284C7), width: 0.8),
+                        ),
+                        child: Text(
+                          '${activeBranch.name.toUpperCase()} (${activeBranch.code})',
+                          style: const TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '• ${repo.clientBusinessName.toUpperCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
 
-                // Operator User Display Badge
+                // Live Cloud Sync Status Pill
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: repo.currentErpUser.isDeveloper ? const Color(0xFF006266) : const Color(0xFF1B4F72),
-                    border: Border.all(color: Colors.white38, width: 0.8),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 0.8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_done_rounded, size: 11, color: Color(0xFF10B981)),
+                      SizedBox(width: 4),
+                      Text(
+                        'CLOUD SYNCED',
+                        style: TextStyle(color: Color(0xFF10B981), fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+
+                // Operator User Display Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: repo.currentErpUser.isDeveloper ? const Color(0xFF0D9488) : const Color(0xFF1E40AF),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: Colors.white24, width: 0.8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -695,14 +782,26 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                       Icon(repo.currentErpUser.isDeveloper ? Icons.shield_rounded : Icons.person_rounded, size: 12, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        '👤 ${repo.currentErpUser.displayName}',
+                        repo.currentErpUser.displayName,
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(
+                          repo.currentErpUser.role.label.toUpperCase(),
+                          style: const TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                // Developer Portal Setup Button (ONLY visible to Developer user)
+                // Developer Portal Setup Button
                 if (repo.currentErpUser.isDeveloper) ...[
                   const SizedBox(width: 6),
                   GestureDetector(
@@ -711,7 +810,8 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF006266),
+                        color: const Color(0xFF0F766E),
+                        borderRadius: BorderRadius.circular(3),
                         border: Border.all(color: Colors.tealAccent.shade100, width: 0.8),
                       ),
                       child: const Row(
@@ -719,7 +819,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                         children: [
                           Icon(Icons.shield_rounded, size: 11, color: Colors.white),
                           SizedBox(width: 4),
-                          Text('🛡️ Developer Settings (iSecure)', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text('Developer Portal', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -735,7 +835,7 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC0392B),
+                        color: const Color(0xFFDC2626),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(color: Colors.amberAccent, width: 1),
                       ),
@@ -745,27 +845,11 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
                           const Icon(Icons.system_update_rounded, size: 12, color: Colors.amberAccent),
                           const SizedBox(width: 4),
                           Text(
-                            '⚡ UPDATE v${_availableUpdate!.latestVersion} AVAILABLE!',
+                            'UPDATE v${_availableUpdate!.latestVersion} READY',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.white24,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: const Text(
-                              'CLICK TO INSTALL',
-                              style: TextStyle(
-                                color: Colors.amberAccent,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.bold,
-                              ),
                             ),
                           ),
                         ],
@@ -1055,93 +1139,200 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
           ),
 
           // ── 3. Quick Action Toolbar Ribbon (New, Edit, Save, Find...) ──
-          Container(
-            width: double.infinity,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: const BoxDecoration(
-              color: ClassicErpTheme.toolbarBg,
-              border: Border(bottom: BorderSide(color: ClassicErpTheme.borderDark, width: 1)),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+          Builder(
+            builder: (context) {
+              final totalRooms = repo.activeBranchRooms.length;
+              final occupiedRooms = repo.activeBranchRooms.where((r) => r.status == RoomStatus.occupied).length;
+              final dirtyRooms = repo.activeBranchRooms.where((r) => r.status == RoomStatus.dirtyVacant || r.status == RoomStatus.cleaningInProgress).length;
+              final occPct = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).round() : 0;
+              final openTickets = repo.activeBranchMaintenanceTickets.where((t) => t.status != MaintenanceStatus.resolved).length;
+              final activeBills = repo.activeBranchPosBills.length;
+
+              return Container(
+                width: double.infinity,
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: const BoxDecoration(
+                  color: ClassicErpTheme.toolbarBg,
+                  border: Border(bottom: BorderSide(color: ClassicErpTheme.borderLight, width: 1)),
+                  boxShadow: [
+                    BoxShadow(color: Color(0x0A000000), offset: Offset(0, 1), blurRadius: 2),
+                  ],
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _toolbarButton(Icons.note_add_rounded, 'New', () => _handleNewAction(repo)),
-                          _toolbarButton(Icons.edit_note_rounded, 'Edit', () => _handleEditAction()),
-                          _toolbarButton(Icons.save_rounded, 'Save', () => _handleSaveAction()),
-                          _toolbarButton(Icons.search_rounded, 'Find', () => _handleFindAction()),
-                          _toolbarSeparator(),
-                          _toolbarButton(Icons.receipt_long_rounded, 'Tax Invoices', () => ClassicInvoiceRegisterDialog.show(context), color: const Color(0xFF1B4F72)),
-                          _toolbarButton(Icons.nightlight_round, 'Night Audit', () => NightAuditDialog.show(context), color: const Color(0xFFB7950B)),
-                          _toolbarSeparator(),
-                          _toolbarButton(Icons.print_rounded, 'Reports', () => _handlePrintAction()),
-                          _toolbarButton(Icons.help_outline_rounded, 'Help', () => _showShortcutsGuide(context)),
-                          _toolbarButton(Icons.meeting_room_outlined, 'Close', () => _closeCurrentModule()),
-                          _toolbarSeparator(),
-                          _toolbarButton(Icons.play_circle_outline_rounded, 'Execute', () {
-                            setState(() {
-                              _activeOperation = 'sp_HotelPro_refresh';
-                              _executionLatency = '0.012 Secs';
-                            });
-                          }),
-                          _toolbarButton(Icons.cancel_presentation_rounded, 'Cnc Doc', () => _closeCurrentModule()),
-                          _toolbarButton(Icons.cancel_rounded, 'Cancel', () => _closeCurrentModule(), color: Colors.red.shade700),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _toolbarButton(Icons.note_add_rounded, 'New', () => _handleNewAction(repo), shortcut: 'Ctrl+N'),
+                              _toolbarButton(Icons.edit_note_rounded, 'Edit', () => _handleEditAction()),
+                              _toolbarButton(Icons.save_rounded, 'Save', () => _handleSaveAction()),
+                              _toolbarButton(Icons.search_rounded, 'Find', () => _handleFindAction(), shortcut: 'Ctrl+F'),
+                              _toolbarSeparator(),
+                              _toolbarButton(Icons.receipt_long_rounded, 'Tax Invoices', () => ClassicInvoiceRegisterDialog.show(context), color: const Color(0xFF0F3A60)),
+                              _toolbarButton(Icons.nightlight_round, 'Night Audit', () => NightAuditDialog.show(context), color: const Color(0xFFD97706), shortcut: 'F11'),
+                              _toolbarButton(Icons.shield_rounded, 'Security', () => SecurityAuditDialog.show(context), color: const Color(0xFF0F172A)),
+                              _toolbarButton(Icons.build_circle_rounded, 'Maintenance', () => MaintenanceWorkOrdersDialog.show(context), color: const Color(0xFFEA580C)),
+                              _toolbarButton(Icons.lock_clock_rounded, 'Lock (Ctrl+L)', () => _showLockWorkstationModal(context, repo), color: const Color(0xFFDC2626), shortcut: 'Ctrl+L'),
+                              _toolbarSeparator(),
+                              _toolbarButton(Icons.print_rounded, 'Reports', () => _handlePrintAction(), shortcut: 'F10'),
+                              _toolbarButton(Icons.help_outline_rounded, 'Help', () => _showShortcutsGuide(context), shortcut: 'F1'),
+                              _toolbarButton(Icons.meeting_room_outlined, 'Close', () => _closeCurrentModule()),
+                              _toolbarSeparator(),
+                              _toolbarButton(Icons.refresh_rounded, 'Execute', () {
+                                setState(() {
+                                  _activeOperation = 'sp_HotelPro_refresh';
+                                  _executionLatency = '0.012 Secs';
+                                });
+                              }),
+                              _toolbarButton(Icons.cancel_presentation_rounded, 'Cnc Doc', () => _closeCurrentModule()),
+                              _toolbarButton(Icons.cancel_rounded, 'Cancel', () => _closeCurrentModule(), color: Colors.red.shade700),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
 
-                      // Active Branch Selector Dropdown (STRICTLY filtered to user's allocated branches)
-                      Builder(
-                        builder: (context) {
-                          final accessible = repo.accessibleBranches;
-                          final selectedId = accessible.any((b) => b.id == activeBranch.id)
-                              ? activeBranch.id
-                              : accessible.first.id;
+                          // Right Section: Quick Search + Live KPIs + Branch Selector
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Embedded Quick Jump Search Bar
+                              Container(
+                                width: 175,
+                                height: 28,
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: ClassicErpTheme.borderLight, width: 1),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.search_rounded, size: 14, color: ClassicErpTheme.textMuted),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: TextField(
+                                        style: const TextStyle(fontSize: 11, color: ClassicErpTheme.textMain),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Jump (Ctrl+F)...',
+                                          hintStyle: TextStyle(fontSize: 10, color: ClassicErpTheme.textMuted),
+                                          contentPadding: EdgeInsets.zero,
+                                          filled: false,
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                        ),
+                                        onSubmitted: (_) => GlobalSearchDialog.show(context, (mIdx, data) => _openModule(mIdx)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
 
-                          return Container(
-                            height: 26,
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: selectedId,
-                                isDense: true,
-                                style: const TextStyle(color: ClassicErpTheme.textMain, fontSize: 11, fontWeight: FontWeight.bold),
-                                items: accessible.map((b) {
-                                  return DropdownMenuItem(
-                                    value: b.id,
-                                    child: Text('📍 ${b.code} — ${b.name}'),
+                              // Live KPI: Occupancy Badge
+                              _ribbonKpiChip(
+                                icon: Icons.hotel_rounded,
+                                label: '$occPct% Occ',
+                                tooltip: '$occupiedRooms of $totalRooms rooms occupied',
+                                color: occPct > 80 ? const Color(0xFFDC2626) : const Color(0xFF0F3A60),
+                                bgColor: (occPct > 80 ? const Color(0xFFDC2626) : const Color(0xFF0F3A60)).withValues(alpha: 0.1),
+                                onTap: () => _openModule(0),
+                              ),
+                              const SizedBox(width: 5),
+
+                              // Live KPI: Dirty Rooms Badge
+                              if (dirtyRooms > 0) ...[
+                                _ribbonKpiChip(
+                                  icon: Icons.cleaning_services_rounded,
+                                  label: '$dirtyRooms Dirty',
+                                  tooltip: '$dirtyRooms rooms need housekeeping',
+                                  color: const Color(0xFFD97706),
+                                  bgColor: const Color(0xFFD97706).withValues(alpha: 0.1),
+                                  onTap: () => _openModule(3),
+                                ),
+                                const SizedBox(width: 5),
+                              ],
+
+                              // Live KPI: Maintenance Tickets
+                              if (openTickets > 0) ...[
+                                _ribbonKpiChip(
+                                  icon: Icons.build_rounded,
+                                  label: '$openTickets Defect${openTickets > 1 ? 's' : ''}',
+                                  tooltip: '$openTickets active maintenance work orders',
+                                  color: const Color(0xFFEA580C),
+                                  bgColor: const Color(0xFFEA580C).withValues(alpha: 0.1),
+                                  onTap: () => MaintenanceWorkOrdersDialog.show(context),
+                                ),
+                                const SizedBox(width: 5),
+                              ],
+
+                              // Live KPI: POS Orders
+                              _ribbonKpiChip(
+                                icon: Icons.receipt_long_rounded,
+                                label: '$activeBills Bills',
+                                tooltip: '$activeBills dining & room bills recorded today',
+                                color: const Color(0xFF16A34A),
+                                bgColor: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                                onTap: () => _openModule(2),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Active Branch Selector Dropdown (STRICTLY filtered to user's allocated branches)
+                              Builder(
+                                builder: (context) {
+                                  final accessible = repo.accessibleBranches;
+                                  final selectedId = accessible.any((b) => b.id == activeBranch.id)
+                                      ? activeBranch.id
+                                      : accessible.first.id;
+
+                                  return Container(
+                                    height: 28,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: ClassicErpTheme.borderDark, width: 1),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: selectedId,
+                                        isDense: true,
+                                        style: const TextStyle(color: ClassicErpTheme.textMain, fontSize: 11, fontWeight: FontWeight.bold),
+                                        items: accessible.map((b) {
+                                          return DropdownMenuItem(
+                                            value: b.id,
+                                            child: Text('📍 ${b.code} — ${b.name}'),
+                                          );
+                                        }).toList(),
+                                        onChanged: (id) {
+                                          if (id != null) {
+                                            repo.switchBranch(id);
+                                            setState(() {
+                                              _executionLatency = '0.014 Secs';
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
                                   );
-                                }).toList(),
-                                onChanged: (id) {
-                                  if (id != null) {
-                                    repo.switchBranch(id);
-                                    setState(() {
-                                      _executionLatency = '0.014 Secs';
-                                    });
-                                  }
                                 },
                               ),
-                            ),
-                          );
-                        },
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
 
           // ── 4. Main Workstation Area (MDI Multi-Window Container) ─────────
@@ -1365,17 +1556,14 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     Widget windowBox = Container(
       decoration: BoxDecoration(
         color: ClassicErpTheme.windowBg,
+        borderRadius: BorderRadius.circular(win.isMaximized ? 0 : 5),
         border: Border.all(
-          color: isActive ? const Color(0xFF1B4F72) : const Color(0xFF7F8C8D),
-          width: isActive ? 2 : 1,
+          color: isActive ? const Color(0xFF0F3A60) : const Color(0xFF64748B),
+          width: isActive ? 1.5 : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: isActive ? Colors.black38 : Colors.black26,
-            offset: const Offset(3, 3),
-            blurRadius: isActive ? 8 : 4,
-          ),
-        ],
+        boxShadow: win.isMaximized
+            ? null
+            : (isActive ? ClassicErpTheme.windowShadowActive : ClassicErpTheme.windowShadowInactive),
       ),
       child: Stack(
         children: [
@@ -1383,6 +1571,8 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
           Positioned.fill(
             child: Material(
               color: ClassicErpTheme.windowBg,
+              borderRadius: BorderRadius.circular(win.isMaximized ? 0 : 5),
+              clipBehavior: Clip.antiAlias,
               child: _buildModuleContent(win.moduleIndex, win, isActive),
             ),
           ),
@@ -1555,44 +1745,61 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          height: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isActive
-                  ? const [Color(0xFF1B4F72), Color(0xFF2874A6)]
-                  : const [Color(0xFF5D6D7E), Color(0xFF85929E)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+        GestureDetector(
+          onDoubleTap: () => _toggleMaximizeWindow(win),
+          child: Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isActive
+                    ? const [Color(0xFF0F3A60), Color(0xFF1E5B94)]
+                    : const [Color(0xFF334155), Color(0xFF475569)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(win.isMaximized ? 0 : 5),
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Icon(win.icon, color: Colors.white, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  win.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                    letterSpacing: 0.3,
+            child: Row(
+              children: [
+                Icon(win.icon, color: Colors.white, size: 14),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    win.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
-              ),
-              _mdiButton(Icons.remove, () => _minimizeWindow(win)),
-              const SizedBox(width: 2),
-              _mdiButton(win.isMaximized ? Icons.filter_none : Icons.crop_square, () => _toggleMaximizeWindow(win)),
-              const SizedBox(width: 2),
-              _mdiButton(Icons.close, () => _closeWindow(win), isClose: true),
-            ],
+                _mdiButton(Icons.vertical_split_rounded, () => _snapWindowLeft(win), tooltip: 'Snap Left (50%)'),
+                const SizedBox(width: 3),
+                _mdiButton(Icons.splitscreen_rounded, () => _snapWindowRight(win), tooltip: 'Snap Right (50%)'),
+                const SizedBox(width: 3),
+                _mdiButton(Icons.remove, () => _minimizeWindow(win), tooltip: 'Minimize'),
+                const SizedBox(width: 3),
+                _mdiButton(win.isMaximized ? Icons.filter_none : Icons.crop_square, () => _toggleMaximizeWindow(win), tooltip: win.isMaximized ? 'Restore' : 'Maximize'),
+                const SizedBox(width: 3),
+                _mdiButton(Icons.close, () => _closeWindow(win), isClose: true, tooltip: 'Close Window'),
+              ],
+            ),
           ),
         ),
-        Expanded(child: child),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.vertical(
+              bottom: Radius.circular(win.isMaximized ? 0 : 5),
+            ),
+            child: child,
+          ),
+        ),
       ],
     );
   }
@@ -1608,41 +1815,43 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
           _bringToFront(win);
         }
       },
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        width: 175,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        width: 180,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: isActive
               ? Colors.white
-              : (win.isMinimized ? const Color(0xFFD6DBDF) : const Color(0xFFEAEDED)),
-          border: Border(
-            top: BorderSide(color: isActive ? const Color(0xFF1B4F72) : ClassicErpTheme.borderDark, width: isActive ? 2 : 1),
-            left: const BorderSide(color: ClassicErpTheme.borderDark, width: 1),
-            right: const BorderSide(color: ClassicErpTheme.borderDark, width: 1),
-            bottom: BorderSide(color: isActive ? Colors.transparent : ClassicErpTheme.borderDark, width: 1),
+              : (win.isMinimized ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isActive ? const Color(0xFF0F3A60) : ClassicErpTheme.borderLight,
+            width: isActive ? 1.5 : 1,
           ),
+          boxShadow: isActive ? const [BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1))] : null,
         ),
         child: Row(
           children: [
-            Icon(win.icon, size: 12, color: isActive ? const Color(0xFF1B4F72) : ClassicErpTheme.textMuted),
-            const SizedBox(width: 4),
+            Icon(win.icon, size: 13, color: isActive ? const Color(0xFF0F3A60) : ClassicErpTheme.textMuted),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
                 win.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                  color: isActive ? const Color(0xFF1B4F72) : ClassicErpTheme.textMain,
+                  fontSize: 10.5,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                  color: isActive ? const Color(0xFF0F3A60) : ClassicErpTheme.textMain,
                 ),
               ),
             ),
             InkWell(
               onTap: () => _closeWindow(win),
+              borderRadius: BorderRadius.circular(2),
               child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Icon(Icons.close, size: 10, color: Colors.grey),
+                padding: EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: Icon(Icons.close, size: 11, color: ClassicErpTheme.textMuted),
               ),
             ),
           ],
@@ -1654,21 +1863,23 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   Widget _taskbarActionBtn(String label, IconData icon, VoidCallback onTap, {Color? color}) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(3),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: ClassicErpTheme.borderDark, width: 0.8),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: ClassicErpTheme.borderLight, width: 0.8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 10, color: color ?? const Color(0xFF1B4F72)),
-            const SizedBox(width: 3),
+            Icon(icon, size: 11, color: color ?? const Color(0xFF0F3A60)),
+            const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 9.5, color: color ?? ClassicErpTheme.textMain, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 10, color: color ?? ClassicErpTheme.textMain, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -1757,126 +1968,426 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   }
 
   Widget _buildMdiDesktop(HotelRepository repo) {
+    final totalRooms = repo.activeBranchRooms.length;
+    final occupiedRooms = repo.activeBranchRooms.where((r) => r.status == RoomStatus.occupied).length;
+    final cleanRooms = repo.activeBranchRooms.where((r) => r.status == RoomStatus.availableClean || r.status == RoomStatus.cleanInspected).length;
+    final dirtyRooms = repo.activeBranchRooms.where((r) => r.status == RoomStatus.dirtyVacant || r.status == RoomStatus.cleaningInProgress).length;
+    final occPct = totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).round() : 0;
+    final openTickets = repo.activeBranchMaintenanceTickets.where((t) => t.status != MaintenanceStatus.resolved).length;
+    final activeBills = repo.activeBranchPosBills.length;
+    final inHouseFolios = repo.activeBranchFolios.where((f) => f.status == 'open').length;
+
     return Container(
-      color: const Color(0xFF4A6572).withValues(alpha: 0.25),
+      color: ClassicErpTheme.desktopBg,
       child: Center(
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Enterprise Watermark & Logo
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  border: Border.all(color: ClassicErpTheme.borderDark, width: 1.5),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, offset: Offset(3, 3), blurRadius: 6),
-                  ],
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1040),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Enterprise Identity Header Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: ClassicErpTheme.borderLight, width: 1),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 4), blurRadius: 12),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F3A60).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.asset(
+                            'lib/ui/features/master/assets/hotelpro.png',
+                            height: 48,
+                            width: 48,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  repo.clientBusinessName.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F3A60),
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5), width: 0.8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.domain_rounded, size: 12, color: Color(0xFF10B981)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${repo.activeBranch.name.toUpperCase()} (${repo.activeBranch.code})',
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              repo.clientTagline.isNotEmpty ? repo.clientTagline : 'Enterprise Multi-Property Hotel & Restaurant Management ERP Suite',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: ClassicErpTheme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Station Identity
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.laptop_chromebook_rounded, size: 12, color: Colors.white70),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Workstation: WS-01',
+                                  style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Operator: ${repo.currentErpUser.displayName}',
+                            style: const TextStyle(fontSize: 10.5, color: ClassicErpTheme.textMuted, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
+
+                const SizedBox(height: 18),
+
+                // 2. Real-Time Operations Snapshot (6 Micro-Gauges)
+                Row(
                   children: [
-                    Text(
-                      repo.clientBusinessName.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1B4F72),
-                        letterSpacing: 1.2,
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.hotel_rounded,
+                        title: 'Room Occupancy',
+                        value: '$occPct%',
+                        subtitle: '$occupiedRooms of $totalRooms rooms',
+                        color: occPct > 80 ? const Color(0xFFDC2626) : const Color(0xFF0F3A60),
+                        onTap: () => _openModule(0),
                       ),
                     ),
-                    if (repo.clientTagline.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        repo.clientTagline,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: ClassicErpTheme.textMuted,
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.meeting_room_rounded,
+                        title: 'Available Clean',
+                        value: '$cleanRooms',
+                        subtitle: 'Ready for check-in',
+                        color: const Color(0xFF10B981),
+                        onTap: () => _openModule(0),
                       ),
-                    ],
-                    if (repo.branches.length > 1) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        'Branch: ${repo.activeBranch.name} (${repo.activeBranch.code})',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF27AE60),
-                          fontWeight: FontWeight.bold,
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.cleaning_services_rounded,
+                        title: 'Housekeeping',
+                        value: '$dirtyRooms',
+                        subtitle: 'Dirty / In cleaning',
+                        color: const Color(0xFFF59E0B),
+                        onTap: () => _openModule(3),
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.receipt_long_rounded,
+                        title: 'Dining Bills',
+                        value: '$activeBills',
+                        subtitle: 'Recorded today',
+                        color: const Color(0xFF0284C7),
+                        onTap: () => _openModule(2),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.build_circle_rounded,
+                        title: 'Maintenance',
+                        value: '$openTickets',
+                        subtitle: 'Active defect tickets',
+                        color: const Color(0xFFEA580C),
+                        onTap: () => MaintenanceWorkOrdersDialog.show(context),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _desktopKpiTile(
+                        icon: Icons.badge_rounded,
+                        title: 'In-House Folios',
+                        value: '$inHouseFolios',
+                        subtitle: 'Active guest accounts',
+                        color: const Color(0xFF7C3AED),
+                        onTap: () => _openModule(1),
+                      ),
+                    ),
                   ],
                 ),
-              ),
 
-              const SizedBox(height: 28),
+                const SizedBox(height: 20),
 
-              // Program Shortcuts Grid (Classic Windows Desktop Program Icons)
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  _desktopShortcut(Icons.inventory_2_rounded, 'Stock & Inventory', 'Ctrl+I', () => _openModule(8)),
-                  _desktopShortcut(Icons.table_chart_rounded, 'Master Section', 'Ctrl+M', () => _openModule(6)),
-                  _desktopShortcut(Icons.account_balance_wallet_rounded, 'Purchase & Finance', 'Ctrl+A', () => _openModule(7)),
-                  _desktopShortcut(Icons.room_service_rounded, 'Front Desk', 'Ctrl+F', () => _openModule(0)),
-                  _desktopShortcut(Icons.calendar_month_rounded, 'Reservations CRS', 'Ctrl+R', () => _openModule(4)),
-                  _desktopShortcut(Icons.receipt_long_rounded, 'Billing & Folios', 'Ctrl+B', () => _openModule(1)),
-                  _desktopShortcut(Icons.restaurant_rounded, 'POS Restaurant', 'Ctrl+P', () => _openModule(2)),
-                  _desktopShortcut(Icons.delivery_dining_rounded, 'Online Delivery', 'Ctrl+O', () => _openModule(9)),
-                  _desktopShortcut(Icons.two_wheeler_rounded, 'Delivery Boys', 'Ctrl+D', () => _openModule(10)),
-                  _desktopShortcut(Icons.cleaning_services_rounded, 'Housekeeping', 'Ctrl+H', () => _openModule(3)),
-                  _desktopShortcut(Icons.analytics_rounded, 'Executive GM', 'Ctrl+E', () => _openModule(5)),
-                  if (repo.currentErpUser.isDeveloper)
-                    _desktopShortcut(Icons.shield_rounded, 'Developer Portal', 'iSecure', () => DeveloperSettingsDialog.show(context), isDev: true),
-                ],
-              ),
-            ],
+                // 3. Operational Launchpad Categories
+                _desktopSectionHeader('FRONT OFFICE & RESERVATIONS', Icons.room_service_rounded),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _modernModuleCard(Icons.table_rows_rounded, 'Live Room Matrix', 'Room status & quick check-in wizard', 'F2', const Color(0xFF0F3A60), () => _openModule(0))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.calendar_month_rounded, 'Advance CRS', 'Reservations, calendar & deposits', 'F3', const Color(0xFF1E40AF), () => _openModule(4))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.receipt_long_rounded, 'Guest Folio Ledger', 'Billing, payments & city ledger', 'F4', const Color(0xFF065F46), () => _openModule(1))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.search_rounded, 'Global Guest Search', 'Find room, guest, invoice instantly', 'Ctrl+F', const Color(0xFF4338CA), () => GlobalSearchDialog.show(context, (mIdx, data) => _openModule(mIdx)))),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+                _desktopSectionHeader('RESTAURANT, BAR & FOOD DELIVERY', Icons.restaurant_rounded),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _modernModuleCard(Icons.restaurant_rounded, 'POS Restaurant Terminal', 'Dine-in tables, live KDS & KOTs', 'F5', const Color(0xFF047857), () => _openModule(2))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.delivery_dining_rounded, 'Online App Delivery', 'Swiggy / Zomato / App orders', 'Ctrl+O', const Color(0xFFB45309), () => _openModule(9))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.two_wheeler_rounded, 'Delivery Boys Fleet', 'Rider allocation & cash settlement', 'Ctrl+D', const Color(0xFFC2410C), () => _openModule(10))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.restaurant_menu_rounded, 'F&B Menu Master', 'Food items, tariffs & pricing', 'Menu', const Color(0xFF0F766E), () => _openModule(6, initialTab: 2))),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+                _desktopSectionHeader('FACILITIES, HOUSEKEEPING & MAINTENANCE', Icons.cleaning_services_rounded),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _modernModuleCard(Icons.cleaning_services_rounded, 'Room Cleaning Board', 'Housekeeping staff task allocation', 'F6', const Color(0xFF6B21A8), () => _openModule(3))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.build_rounded, 'Engineering Work Orders', 'HVAC, electrical & plumbing repairs', 'WO', const Color(0xFFC2410C), () => MaintenanceWorkOrdersDialog.show(context))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.shield_rounded, 'Security Audit Center', 'Tamper-proof logs & signatures', 'Sec', const Color(0xFF0F172A), () => SecurityAuditDialog.show(context))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.lock_clock_rounded, 'Lock Workstation', 'Secure terminal immediately', 'Ctrl+L', const Color(0xFFDC2626), () => _showLockWorkstationModal(context, repo))),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+                _desktopSectionHeader('FINANCE, INVENTORY & EXECUTIVE CONTROL', Icons.analytics_rounded),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: _modernModuleCard(Icons.shopping_bag_rounded, 'Purchase & Accounts', 'Supplier bills, vouchers & balance sheet', 'F7', const Color(0xFF047857), () => _openModule(7))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.inventory_2_rounded, 'Stock & Valuation', 'Material inwards, issues & reorder alerts', 'F8', const Color(0xFF0284C7), () => _openModule(8))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.table_chart_rounded, 'Master Section', 'Tariffs, room types, staff & roles', 'F9', const Color(0xFF475569), () => _openModule(6))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _modernModuleCard(Icons.analytics_rounded, 'Executive Analytics', 'Revenue, ADR, RevPAR & GM insights', 'Ctrl+E', const Color(0xFF991B1B), () => _openModule(5))),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _desktopShortcut(IconData icon, String title, String shortcut, VoidCallback onTap, {bool isDev = false}) {
+  Widget _desktopSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF0F3A60)),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF334155),
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(child: Divider(color: ClassicErpTheme.borderLight, thickness: 1)),
+      ],
+    );
+  }
+
+  Widget _desktopKpiTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        width: 130,
-        height: 100,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isDev ? const Color(0xFFE8F8F5) : Colors.white,
-          border: Border.all(color: isDev ? const Color(0xFF1ABC9C) : ClassicErpTheme.borderDark, width: 1),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: ClassicErpTheme.borderLight, width: 1),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, offset: Offset(2, 2), blurRadius: 3),
+            BoxShadow(color: Color(0x08000000), offset: Offset(0, 2), blurRadius: 4),
           ],
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 32, color: isDev ? const Color(0xFF006266) : const Color(0xFF1B4F72)),
-            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ClassicErpTheme.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Icon(icon, size: 15, color: color),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: ClassicErpTheme.textMain,
-              ),
+              value,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
             ),
             const SizedBox(height: 2),
             Text(
-              shortcut,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: isDev ? const Color(0xFF006266) : ClassicErpTheme.textMuted,
+              subtitle,
+              style: const TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modernModuleCard(
+    IconData icon,
+    String title,
+    String subtitle,
+    String shortcut,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        height: 82,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: ClassicErpTheme.borderLight, width: 1),
+          boxShadow: const [
+            BoxShadow(color: Color(0x06000000), offset: Offset(0, 2), blurRadius: 4),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMain),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: ClassicErpTheme.borderLight, width: 0.8),
+                        ),
+                        child: Text(
+                          shortcut,
+                          style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: ClassicErpTheme.textMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 9.5, color: ClassicErpTheme.textMuted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
@@ -1885,23 +2396,30 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
     );
   }
 
-  Widget _mdiButton(IconData icon, VoidCallback onTap, {bool isClose = false}) {
-    return InkWell(
+  Widget _mdiButton(IconData icon, VoidCallback onTap, {bool isClose = false, String? tooltip}) {
+    Widget btn = InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(3),
       child: Container(
-        width: 16,
-        height: 14,
+        width: 22,
+        height: 18,
         decoration: BoxDecoration(
-          color: isClose ? const Color(0xFFC0392B) : const Color(0xFFD6DBDF),
-          border: Border.all(color: Colors.white, width: 0.5),
+          color: isClose ? const Color(0xFFDC2626) : Colors.white24,
+          borderRadius: BorderRadius.circular(3),
         ),
+        alignment: Alignment.center,
         child: Icon(
           icon,
-          size: 10,
-          color: isClose ? Colors.white : Colors.black87,
+          size: 11,
+          color: Colors.white,
         ),
       ),
     );
+
+    if (tooltip != null) {
+      btn = Tooltip(message: tooltip, child: btn);
+    }
+    return btn;
   }
 
   static void _dummyNav(int i) {}
@@ -1979,16 +2497,16 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   }
 
 
-  Widget _toolbarButton(IconData icon, String label, VoidCallback onTap, {Color? color}) {
-    return InkWell(
+  Widget _toolbarButton(IconData icon, String label, VoidCallback onTap, {Color? color, String? shortcut}) {
+    Widget btn = InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        width: 44,
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: color ?? const Color(0xFF2C3E50)),
+            Icon(icon, size: 18, color: color ?? const Color(0xFF0F3A60)),
             const SizedBox(height: 2),
             Text(
               label,
@@ -2000,6 +2518,51 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
               maxLines: 1,
             ),
           ],
+        ),
+      ),
+    );
+
+    if (shortcut != null) {
+      btn = Tooltip(message: '$label ($shortcut)', child: btn);
+    }
+    return btn;
+  }
+
+  Widget _ribbonKpiChip({
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withValues(alpha: 0.5), width: 0.8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2063,12 +2626,16 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
   Widget _titleButton(IconData icon, VoidCallback onTap, {bool isClose = false}) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(3),
       child: Container(
-        width: 16,
-        height: 14,
-        color: isClose ? const Color(0xFFC0392B) : const Color(0xFF1E3799),
+        width: 28,
+        height: 22,
+        decoration: BoxDecoration(
+          color: isClose ? const Color(0xFFDC2626) : Colors.white12,
+          borderRadius: BorderRadius.circular(3),
+        ),
         alignment: Alignment.center,
-        child: Icon(icon, size: 9, color: Colors.white),
+        child: Icon(icon, size: 11, color: Colors.white),
       ),
     );
   }
@@ -2132,6 +2699,121 @@ class _ClassicErpShellState extends State<ClassicErpShell> {
         content: Text('✓ Local database and cloud server synchronized successfully.'),
         backgroundColor: Color(0xFF27AE60),
         duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showLockWorkstationModal(BuildContext context, HotelRepository repo) {
+    final passCtrl = TextEditingController();
+    String? errorText;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF334155), width: 1.5),
+              boxShadow: const [
+                BoxShadow(color: Colors.black54, blurRadius: 24, offset: Offset(0, 8)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_rounded, size: 36, color: Color(0xFFEF4444)),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Workstation Locked',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Station operator: ${repo.currentErpUser.displayName} (@${repo.currentErpUser.username})',
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: true,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Enter operator password to unlock...',
+                    hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                    errorText: errorText,
+                    errorStyle: const TextStyle(color: Color(0xFFF87171), fontSize: 10),
+                    filled: true,
+                    fillColor: const Color(0xFF1E293B),
+                    prefixIcon: const Icon(Icons.key_rounded, size: 14, color: Color(0xFF94A3B8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFF475569))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFF475569))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 1.5)),
+                  ),
+                  onSubmitted: (_) {
+                    final pass = passCtrl.text.trim();
+                    final success = repo.verifyCurrentErpPassword(pass);
+                    if (success) {
+                      Navigator.pop(ctx);
+                    } else {
+                      setDialogState(() {
+                        errorText = 'Incorrect password. Please try again.';
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        repo.logOutErp();
+                      },
+                      child: const Text('Log Out', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      onPressed: () {
+                        final pass = passCtrl.text.trim();
+                        final success = repo.verifyCurrentErpPassword(pass);
+                        if (success) {
+                          Navigator.pop(ctx);
+                        } else {
+                          setDialogState(() {
+                            errorText = 'Incorrect password. Please try again.';
+                          });
+                        }
+                      },
+                      child: const Text('Unlock', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
