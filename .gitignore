@@ -63,7 +63,6 @@ hotelpro_sync_security.json
 hotelpro_business_config.json
 
 # Built release packages & binaries
-releases/*.apk
-releases/*.aab
-releases/*.exe
-releases/*.msi
+releases/
+releases/*
+*.zip

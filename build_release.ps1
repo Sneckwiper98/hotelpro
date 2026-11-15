@@ -1,4 +1,4 @@
-﻿# HotelPro Multi-App Release Builder (PowerShell)
+# HotelPro Multi-App Release Builder (PowerShell)
 param (
     [string]$Target = ""
 )
