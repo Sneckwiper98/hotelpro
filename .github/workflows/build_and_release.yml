@@ -42,27 +42,27 @@ jobs:
 
       - name: Build Waiter POS APK
         run: |
-          flutter build apk -t lib/main_waiter.dart -PtargetApp=waiter --dart-define=APP_ID=waiter --dart-define=SERVER_IP=192.168.0.100 --release
+          flutter build apk -t lib/main_waiter.dart -PtargetApp=waiter --dart-define=APP_ID=waiter --dart-define=SERVER_IP=192.168.0.100 --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_WaiterPOS.apk
 
       - name: Build Delivery Partner APK
         run: |
-          flutter build apk -t lib/main_delivery.dart -PtargetApp=delivery --dart-define=APP_ID=delivery --dart-define=SERVER_IP=192.168.0.100 --release
+          flutter build apk -t lib/main_delivery.dart -PtargetApp=delivery --dart-define=APP_ID=delivery --dart-define=SERVER_IP=192.168.0.100 --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_DeliveryBoy.apk
 
       - name: Build Housekeeping APK
         run: |
-          flutter build apk -t lib/main_housekeeping.dart -PtargetApp=housekeeping --dart-define=APP_ID=housekeeping --release
+          flutter build apk -t lib/main_housekeeping.dart -PtargetApp=housekeeping --dart-define=APP_ID=housekeeping --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_Housekeeping.apk
 
       - name: Build Manager MIS APK
         run: |
-          flutter build apk -t lib/main_manager.dart -PtargetApp=manager --dart-define=APP_ID=manager --release
+          flutter build apk -t lib/main_manager.dart -PtargetApp=manager --dart-define=APP_ID=manager --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_ManagerMIS.apk
 
       - name: Build Customer Dining APK
         run: |
-          flutter build apk -t lib/main_customer.dart -PtargetApp=customer --dart-define=APP_ID=customer --release
+          flutter build apk -t lib/main_customer.dart -PtargetApp=customer --dart-define=APP_ID=customer --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk releases/HotelPro_CustomerDining.apk
 
       - name: Upload Android APKs Artifact

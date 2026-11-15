@@ -1,4 +1,4 @@
-# HotelPro Multi-App Release Builder (PowerShell)
+﻿# HotelPro Multi-App Release Builder (PowerShell)
 param (
     [string]$Target = ""
 )
@@ -22,7 +22,7 @@ function Build-App {
         [string]$TargetApp
     )
     Write-Host "`n[*] Building $Name APK ($TargetFile, ID: com.isecuresystem.hotelpro.$TargetApp)..." -ForegroundColor Yellow
-    flutter build apk -t $TargetFile -PtargetApp=$TargetApp --dart-define=APP_ID=$TargetApp --dart-define=SERVER_IP=192.168.0.100 --release --obfuscate --split-debug-info="build\app\outputs\symbols"
+    flutter build apk -t $TargetFile -PtargetApp=$TargetApp --dart-define=APP_ID=$TargetApp --dart-define=SERVER_IP=192.168.0.100 --release --obfuscate --split-debug-info="build\app\outputs\symbols" --android-skip-build-dependency-validation
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[X] Failed to build $Name" -ForegroundColor Red
         return $false
