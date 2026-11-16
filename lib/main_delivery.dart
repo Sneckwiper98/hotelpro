@@ -10,6 +10,7 @@ void main() async {
   await SupabaseConfig.initialize();
 
   final repo = HotelRepository();
+  await repo.fetchFromSupabase().timeout(const Duration(seconds: 5), onTimeout: () {});
   HotelSyncBridgeService.instance.attachRepository(repo);
 
   runApp(

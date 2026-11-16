@@ -452,7 +452,7 @@ class AppUserModel {
       id: json['id'] as String,
       staffId: json['staff_id'] as String?,
       username: json['username'] as String? ?? '',
-      password: json['password'] as String? ?? 'hotel@123',
+      password: (json['password_hash'] ?? json['password']) as String? ?? 'hotel@123',
       displayName: json['display_name'] as String? ?? '',
       role: role,
       branchAccess: branches,
@@ -473,11 +473,24 @@ class AppUserModel {
         'staff_id': staffId,
         'username': username,
         'password': password,
+        'password_hash': password,
         'display_name': displayName,
         'role': role.code,
         'branch_access': branchAccess,
         'app_access': (appAccess.isNotEmpty ? appAccess : role.defaultAppAccess).toList(),
         'function_rights': customPermissions?.toList() ?? role.permissions.toList(),
+        'is_active': isActive,
+        'created_at': createdAt.toIso8601String(),
+      };
+
+  Map<String, dynamic> toSupabaseJson() => {
+        'id': id,
+        'staff_id': staffId,
+        'username': username,
+        'password_hash': password,
+        'display_name': displayName,
+        'role': role.code,
+        'branch_access': branchAccess,
         'is_active': isActive,
         'created_at': createdAt.toIso8601String(),
       };

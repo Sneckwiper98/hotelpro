@@ -18,13 +18,17 @@ import 'data/services/app_update_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase (with fallback to high-fidelity local engine)
+  // Initialize Supabase Online Cloud Database
   await SupabaseConfig.initialize();
+
+  final hotelRepo = HotelRepository();
+  // Fetch initial online records from Supabase PostgreSQL before app launch
+  await hotelRepo.fetchFromSupabase().timeout(const Duration(seconds: 5), onTimeout: () {});
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HotelRepository()),
+        ChangeNotifierProvider.value(value: hotelRepo),
       ],
       child: const HotelProApp(),
     ),

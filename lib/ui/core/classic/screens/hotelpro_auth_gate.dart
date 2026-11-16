@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../config/classic_erp_theme.dart';
+import '../../../../config/supabase_config.dart';
 import '../../../../data/repositories/hotel_repository.dart';
 import '../classic_erp_shell.dart';
 import '../../../../data/services/app_update_service.dart';
@@ -442,12 +443,16 @@ class _HotelProLoginScreenState extends State<HotelProLoginScreen> {
     super.dispose();
   }
 
-  void _submitLogin(HotelRepository repo) {
+  void _submitLogin(HotelRepository repo) async {
     final user = _usernameController.text.trim();
     final pass = _passwordController.text.trim();
 
     if (user.isEmpty) {
       setState(() => _errorMessage = 'Please enter operator username.');
+      return;
+    }
+    if (pass.isEmpty) {
+      setState(() => _errorMessage = 'Please enter security password.');
       return;
     }
 
@@ -456,12 +461,17 @@ class _HotelProLoginScreenState extends State<HotelProLoginScreen> {
       _errorMessage = null;
     });
 
-    final success = repo.authenticateUser(user, pass);
+    if (repo.isFetchingFromSupabase) {
+      await repo.fetchFromSupabase();
+    }
+
+    final res = repo.authenticateUserWithDetails(user, pass);
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (!success) {
+    if (!res.success) {
       setState(() {
-        _errorMessage = 'Invalid username or password credentials. Please try again.';
+        _errorMessage = res.errorMessage ?? 'Invalid username or password credentials. Please try again.';
       });
     }
   }
@@ -572,11 +582,11 @@ class _HotelProLoginScreenState extends State<HotelProLoginScreen> {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'Hotelpro Management System',
                                   style: TextStyle(
                                     fontSize: 15,
@@ -584,14 +594,44 @@ class _HotelProLoginScreenState extends State<HotelProLoginScreen> {
                                     color: Color(0xFF0F172A),
                                   ),
                                 ),
-                                SizedBox(height: 2),
-                                Text(
+                                const SizedBox(height: 2),
+                                const Text(
                                   'Single & Multi-Branch Enterprise ERP — Operator Sign In',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: ClassicErpTheme.textMuted,
                                     fontWeight: FontWeight.w500,
                                   ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: repo.isFetchingFromSupabase
+                                            ? Colors.amber
+                                            : (SupabaseConfig.isInitialized ? const Color(0xFF10B981) : Colors.red),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      repo.isFetchingFromSupabase
+                                          ? 'Syncing with Supabase Cloud...'
+                                          : (SupabaseConfig.isInitialized
+                                              ? 'Online Cloud Database Active (PostgreSQL Live)'
+                                              : 'Offline Database Disabled'),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: repo.isFetchingFromSupabase
+                                            ? Colors.amber.shade800
+                                            : (SupabaseConfig.isInitialized ? const Color(0xFF059669) : Colors.red.shade700),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
