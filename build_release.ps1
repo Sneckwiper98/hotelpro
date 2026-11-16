@@ -1,4 +1,4 @@
-# HotelPro Multi-App Release Builder (PowerShell)
+﻿# HotelPro Multi-App Release Builder (PowerShell)
 param (
     [string]$Target = ""
 )
@@ -59,27 +59,27 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
 
 switch ($Target.ToLower()) {
     "waiter" {
-        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS_v1.1.apk" "waiter"
+        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS.apk" "waiter"
     }
     "delivery" {
-        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy_v1.1.apk" "delivery"
+        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy.apk" "delivery"
     }
     "housekeeping" {
-        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping_v1.1.apk" "housekeeping"
+        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping.apk" "housekeeping"
     }
     "manager" {
-        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS_v1.1.apk" "manager"
+        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS.apk" "manager"
     }
     "customer" {
-        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining_v1.1.apk" "customer"
+        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining.apk" "customer"
     }
     "all" {
         Write-Host "`n[*] BUILDING ALL 5 MOBILE APPS SEQUENTIALLY..." -ForegroundColor Magenta
-        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS_v1.1.apk" "waiter"
-        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy_v1.1.apk" "delivery"
-        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping_v1.1.apk" "housekeeping"
-        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS_v1.1.apk" "manager"
-        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining_v1.1.apk" "customer"
+        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS.apk" "waiter"
+        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy.apk" "delivery"
+        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping.apk" "housekeeping"
+        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS.apk" "manager"
+        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining.apk" "customer"
         Write-Host "`n[🎉] All 5 APKs have been built successfully in the 'releases/' folder!" -ForegroundColor Green
     }
     "windows" {
@@ -87,10 +87,8 @@ switch ($Target.ToLower()) {
         flutter build windows --release --obfuscate --split-debug-info="build\windows\symbols"
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] Windows build ready in: build\windows\x64\runner\Release" -ForegroundColor Green
-            $winReleaseDir = "releases\HotelPro_Windows_ERP_v1.1"
-            if (Test-Path $winReleaseDir) { Remove-Item -Recurse -Force $winReleaseDir }
-            Copy-Item -Recurse "build\windows\x64\runner\Release" $winReleaseDir
-            Write-Host "[OK] Packaged Windows ERP in: $winReleaseDir" -ForegroundColor Green
+            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "releases\HotelPro_Windows_ERP.zip" -Force
+            Write-Host "[OK] Packaged Windows ERP in: releases\HotelPro_Windows_ERP.zip" -ForegroundColor Green
         }
     }
     "full" {
@@ -98,22 +96,20 @@ switch ($Target.ToLower()) {
         Write-Host "`n[*] 1/6: Building Windows Desktop ERP Release..." -ForegroundColor Yellow
         flutter build windows --release --obfuscate --split-debug-info="build\windows\symbols"
         if ($LASTEXITCODE -eq 0) {
-            $winReleaseDir = "releases\HotelPro_Windows_ERP_v1.1"
-            if (Test-Path $winReleaseDir) { Remove-Item -Recurse -Force $winReleaseDir }
-            Copy-Item -Recurse "build\windows\x64\runner\Release" $winReleaseDir
-            Write-Host "[OK] Windows ERP Packaged in: $winReleaseDir" -ForegroundColor Green
+            Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "releases\HotelPro_Windows_ERP.zip" -Force
+            Write-Host "[OK] Windows ERP Packaged in: releases\HotelPro_Windows_ERP.zip" -ForegroundColor Green
         }
         Write-Host "`n[*] 2/6: Staff Waiter POS APK..." -ForegroundColor Yellow
-        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS_v1.1.apk" "waiter"
+        Build-App "Staff Waiter POS" "lib/main_waiter.dart" "HotelPro_WaiterPOS.apk" "waiter"
         Write-Host "`n[*] 3/6: Delivery Partner APK..." -ForegroundColor Yellow
-        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy_v1.1.apk" "delivery"
+        Build-App "Delivery Partner" "lib/main_delivery.dart" "HotelPro_DeliveryBoy.apk" "delivery"
         Write-Host "`n[*] 4/6: Housekeeping APK..." -ForegroundColor Yellow
-        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping_v1.1.apk" "housekeeping"
+        Build-App "Housekeeping" "lib/main_housekeeping.dart" "HotelPro_Housekeeping.apk" "housekeeping"
         Write-Host "`n[*] 5/6: Manager MIS APK..." -ForegroundColor Yellow
-        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS_v1.1.apk" "manager"
+        Build-App "Manager MIS" "lib/main_manager.dart" "HotelPro_ManagerMIS.apk" "manager"
         Write-Host "`n[*] 6/6: Customer Dining APK..." -ForegroundColor Yellow
-        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining_v1.1.apk" "customer"
-        Write-Host "`n[🎉] Complete HotelPro Enterprise Suite v1.1 Packaged in 'releases/' folder!" -ForegroundColor Green
+        Build-App "Customer Dining" "lib/main_customer.dart" "HotelPro_CustomerDining.apk" "customer"
+        Write-Host "`n[🎉] Complete HotelPro Enterprise Suite Packaged in 'releases/' folder!" -ForegroundColor Green
     }
     default {
         Write-Host "Unknown target: $Target. Use: waiter, delivery, housekeeping, manager, customer, all, windows, or full." -ForegroundColor Red
